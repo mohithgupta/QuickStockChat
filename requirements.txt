@@ -8,3 +8,7 @@ yfinance
 langchain
 langchain-core
 langfuse
+pytest
+pytest-asyncio
+pytest-cov
+httpx
