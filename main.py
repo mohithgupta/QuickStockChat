@@ -1,24 +1,28 @@
 import os
 import uvicorn
-from fastapi import FastAPI, Request, HTTPException, Depends, status
+from datetime import datetime, timedelta
+from fastapi import FastAPI, Request, HTTPException, Depends, status, Query
 from fastapi.responses import JSONResponse
 from langfuse import Langfuse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import SystemMessage, HumanMessage
-from config.config import RequestObject, ValidationErrorResponse
+from config.config import RequestObject, ValidationErrorResponse, ChartResponse, ChartDataPoint
 from MarketInsight.components.agent import agent
 from MarketInsight.utils.logger import get_logger
-from MarketInsight.utils.validators import sanitize_input
-from MarketInsight.utils.exceptions import ValidationError, MarketInsightError
+from MarketInsight.utils.validators import sanitize_input, validate_ticker
+from MarketInsight.utils.exceptions import ValidationError, MarketInsightError, TickerValidationError, ExternalServiceError
 from middleware.rate_limiter import limiter
 from middleware.security_headers import SecurityHeadersMiddleware
 from middleware.auth import get_api_key
 from middleware.error_handlers import register_exception_handlers
+import yfinance as yf
+from utils.api_throttler import get_throttler
 
 logger = get_logger(__name__)
 app = FastAPI()
 app.state.limiter = limiter
+throttler = get_throttler()
 
 # Register global exception handlers
 register_exception_handlers(app)
@@ -47,6 +51,132 @@ langfuse = Langfuse(
 async def health_check():
     """Health check endpoint for service monitoring and keep-alive pings"""
     return {"status": "ok", "message": "Service is running"}
+
+
+@app.get("/api/charts/stock-price")
+@limiter.limit("60/minute")
+async def get_stock_price_chart(
+    request: Request,
+    ticker: str = Query(..., description="Stock ticker symbol (e.g., AAPL)"),
+    period: str = Query(default="1mo", description="Time period: 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max"),
+    api_key: str = Depends(get_api_key)
+):
+    """
+    Stock price chart endpoint returning historical price data for visualization.
+
+    Provides OHLCV (Open, High, Low, Close, Volume) data for the specified ticker and time period.
+    Returns data in a format suitable for chart libraries with support for line and candlestick charts.
+
+    Args:
+        ticker: Stock ticker symbol (e.g., AAPL, MSFT, GOOGL)
+        period: Time period for historical data (default: "1mo")
+            Valid options: 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max
+
+    Returns:
+        ChartResponse: Structured chart data with metadata and data points
+
+    Raises:
+        HTTPException 400: If ticker or period validation fails
+        HTTPException 503: If external service (yfinance) is unavailable
+    """
+    # Validate ticker symbol
+    try:
+        validated_ticker = validate_ticker(ticker)
+    except TickerValidationError as e:
+        logger.warning(f"Ticker validation failed for chart request: {e.message}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": e.message,
+                "error_type": "TickerValidationError",
+                "field": "ticker"
+            }
+        )
+
+    # Validate period parameter
+    valid_periods = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"]
+    if period not in valid_periods:
+        logger.warning(f"Invalid period parameter: {period}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": f"Invalid period '{period}'. Must be one of: {', '.join(valid_periods)}",
+                "error_type": "ValidationError",
+                "field": "period"
+            }
+        )
+
+    try:
+        # Fetch historical data from yfinance
+        with throttler.throttle("yfinance"):
+            stock = yf.Ticker(validated_ticker)
+            hist = stock.history(period=period)
+
+        # Check if data is available
+        if hist is None or hist.empty:
+            logger.warning(f"No historical data available for {validated_ticker} with period {period}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error": f"No historical data available for {validated_ticker} with the specified period",
+                    "error_type": "ExternalServiceError",
+                    "ticker": validated_ticker,
+                    "period": period
+                }
+            )
+
+        # Convert DataFrame to list of ChartDataPoint
+        data_points = []
+        for index, row in hist.iterrows():
+            # Format date as ISO string
+            date_str = index.strftime("%Y-%m-%d")
+
+            # Create data point with all available fields
+            data_point = ChartDataPoint(
+                date=date_str,
+                value=float(row['Close']) if 'Close' in row and not row['Close'] != row['Close'] else None,
+                open=float(row['Open']) if 'Open' in row and not row['Open'] != row['Open'] else None,
+                high=float(row['High']) if 'High' in row and not row['High'] != row['High'] else None,
+                low=float(row['Low']) if 'Low' in row and not row['Low'] != row['Low'] else None,
+                close=float(row['Close']) if 'Close' in row and not row['Close'] != row['Close'] else None,
+                volume=float(row['Volume']) if 'Volume' in row and not row['Volume'] != row['Volume'] else None
+            )
+            data_points.append(data_point)
+
+        # Determine chart type based on data (candlestick if OHLC data exists, otherwise line)
+        chart_type = "candlestick" if all(dp.open and dp.high and dp.low for dp in data_points) else "line"
+
+        # Create response with metadata
+        response = ChartResponse(
+            ticker=validated_ticker,
+            chart_type=chart_type,
+            period=period,
+            data=data_points,
+            metadata={
+                "data_points": len(data_points),
+                "date_range": {
+                    "start": data_points[0].date if data_points else None,
+                    "end": data_points[-1].date if data_points else None
+                },
+                "currency": "USD"  # Default to USD, could be enhanced to detect currency
+            }
+        )
+
+        logger.info(f"Successfully retrieved chart data for {validated_ticker} ({period}): {len(data_points)} data points")
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to retrieve chart data for {validated_ticker}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error": "Failed to retrieve stock price data. Please try again later.",
+                "error_type": "ExternalServiceError",
+                "service": "yfinance"
+            }
+        )
 
 
 @app.post("/api/chat")
