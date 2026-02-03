@@ -3,6 +3,10 @@ import { C1Chat, ThemeProvider } from '@thesysai/genui-sdk'
 import '@crayonai/react-ui/styles/index.css'
 import { useState, useCallback, useRef, useEffect } from 'react'
 
+// API configuration from environment variables
+const API_URL = import.meta.env.VITE_API_URL || 'https://marketinsight-skgl.onrender.com/api/chat'
+const API_KEY = import.meta.env.VITE_API_KEY || ''
+
 // Recommendation data
 const RECOMMENDATIONS = [
   {
@@ -265,15 +269,23 @@ function App() {
     }
   }, [showRecommendations, hasMessages, handleRecommendationClick])
 
+  // Prepare chat configuration
+  const chatConfig = {
+    apiUrl: API_URL,
+    agentName: "Market Insight",
+    logoUrl: "/icon.png",
+    formFactor: "full-page" as const,
+  }
+
+  // Add API key if configured (optional authentication)
+  const configWithAuth = API_KEY
+    ? { ...chatConfig, customHeaders: { "X-API-Key": API_KEY } }
+    : chatConfig
+
   return (
     <div className="app-container" ref={chatContainerRef}>
       <ThemeProvider mode="dark">
-        <C1Chat
-          apiUrl="https://marketinsight-skgl.onrender.com/api/chat"
-          agentName="Market Insight"
-          logoUrl="/icon.png"
-          formFactor="full-page"
-        />
+        <C1Chat {...configWithAuth} />
       </ThemeProvider>
     </div>
   )
