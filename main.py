@@ -1,6 +1,6 @@
 import os
 import uvicorn
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from langfuse import Langfuse
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +11,7 @@ from MarketInsight.components.agent import agent
 from MarketInsight.utils.logger import get_logger
 from middleware.rate_limiter import limiter
 from middleware.security_headers import SecurityHeadersMiddleware
+from middleware.auth import get_api_key
 from slowapi.errors import RateLimitExceeded
 
 logger = get_logger(__name__)
@@ -59,7 +60,7 @@ async def health_check():
 
 @app.post("/api/chat")
 @limiter.limit("100/minute")
-async def chat(request: Request, body: RequestObject):
+async def chat(request: Request, body: RequestObject, api_key: str = Depends(get_api_key)):
     config = {'configurable': {'thread_id': body.threadId}}
     async def generate():
         try:
