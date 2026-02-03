@@ -288,8 +288,12 @@ def get_dividends(ticker: str):
 def get_splits(ticker: str):
     logger.info(f"Retrieving Stock Splits of {ticker}")
 
-    if not ticker or not isinstance(ticker, str):
-        return "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+    # Validate ticker using new validator
+    try:
+        ticker = validate_ticker(ticker)
+    except TickerValidationError as e:
+        logger.error(f"Ticker validation failed: {e}")
+        return f"Error: {e.message}"
 
     try:
         start_time = time.time()
@@ -297,8 +301,9 @@ def get_splits(ticker: str):
             stock = yf.Ticker(ticker)
             splits = stock.splits.to_dict()
 
-        if splits is None:
-            return "No stock splits available for {ticker}"
+        if not splits:
+            logger.warning(f"No stock splits available for {ticker}")
+            return f"No stock splits available for {ticker}"
 
         end_time = time.time()
         logger.info(f"Retrieved Stock Splits of {ticker} in {end_time - start_time:.3f} seconds")
@@ -316,8 +321,12 @@ def get_splits(ticker: str):
 def get_institutional_holders(ticker: str):
     logger.info(f"Retrieving Institutional Holders of {ticker}")
 
-    if not ticker or not isinstance(ticker, str):
-        return "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+    # Validate ticker using new validator
+    try:
+        ticker = validate_ticker(ticker)
+    except TickerValidationError as e:
+        logger.error(f"Ticker validation failed: {e}")
+        return f"Error: {e.message}"
 
     try:
         start_time = time.time()
@@ -325,8 +334,9 @@ def get_institutional_holders(ticker: str):
             stock = yf.Ticker(ticker)
             holders = stock.institutional_holders.to_dict()
 
-        if holders is None:
-            return "No institutional holders available for {ticker}"
+        if not holders:
+            logger.warning(f"No institutional holders available for {ticker}")
+            return f"No institutional holders available for {ticker}"
 
         end_time = time.time()
         logger.info(f"Retrieved Institutional Holders of {ticker} in {end_time - start_time:.3f} seconds")
@@ -343,8 +353,12 @@ def get_institutional_holders(ticker: str):
 def get_major_shareholders(ticker: str):
     logger.info(f"Retrieving Major Share Holders of {ticker}")
 
-    if not ticker or not isinstance(ticker, str):
-        return "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+    # Validate ticker using new validator
+    try:
+        ticker = validate_ticker(ticker)
+    except TickerValidationError as e:
+        logger.error(f"Ticker validation failed: {e}")
+        return f"Error: {e.message}"
 
     try:
         start_time = time.time()
@@ -352,8 +366,9 @@ def get_major_shareholders(ticker: str):
             stock = yf.Ticker(ticker)
             holders = stock.major_holders.to_dict()
 
-        if holders is None:
-            return "No major share holders available for {ticker}"
+        if not holders:
+            logger.warning(f"No major share holders available for {ticker}")
+            return f"No major share holders available for {ticker}"
 
         end_time = time.time()
         logger.info(f"Retrieved Major Share Holders of {ticker} in {end_time - start_time:.3f} seconds")
@@ -370,8 +385,12 @@ def get_major_shareholders(ticker: str):
 def get_mutual_fund_holders(ticker: str):
     logger.info(f"Retrieving Mutual Fund Holders of {ticker}")
 
-    if not ticker or not isinstance(ticker, str):
-        return "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+    # Validate ticker using new validator
+    try:
+        ticker = validate_ticker(ticker)
+    except TickerValidationError as e:
+        logger.error(f"Ticker validation failed: {e}")
+        return f"Error: {e.message}"
 
     try:
         start_time = time.time()
@@ -379,8 +398,9 @@ def get_mutual_fund_holders(ticker: str):
             stock = yf.Ticker(ticker)
             holders = stock.mutualfund_holders.to_dict()
 
-        if holders is None:
-            return "No mutual fund holders available for {ticker}"
+        if not holders:
+            logger.warning(f"No mutual fund holders available for {ticker}")
+            return f"No mutual fund holders available for {ticker}"
 
         end_time = time.time()
         logger.info(f"Retrieved Mutual Fund Holders of {ticker} in {end_time - start_time:.3f} seconds")
