@@ -417,8 +417,12 @@ def get_mutual_fund_holders(ticker: str):
 def get_insider_transactions(ticker: str):
     logger.info(f"Retrieving Insider Transactions of {ticker}")
 
-    if not ticker or not isinstance(ticker, str):
-        return "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+    # Validate ticker using new validator
+    try:
+        ticker = validate_ticker(ticker)
+    except TickerValidationError as e:
+        logger.error(f"Ticker validation failed: {e}")
+        return f"Error: {e.message}"
 
     try:
         start_time = time.time()
@@ -426,8 +430,9 @@ def get_insider_transactions(ticker: str):
             stock = yf.Ticker(ticker)
             insider_txn = stock.insider_transactions.to_dict()
 
-        if insider_txn is None:
-            return "No insider transactions available for {ticker}"
+        if not insider_txn:
+            logger.warning(f"No insider transactions available for {ticker}")
+            return f"No insider transactions available for {ticker}"
 
         end_time = time.time()
         logger.info(f"Retrieved Insider Transactions of {ticker} in {end_time - start_time:.3f} seconds")
@@ -444,8 +449,12 @@ def get_insider_transactions(ticker: str):
 def get_analyst_recommendations(ticker: str):
     logger.info(f"Retrieving Analyst Recommendations of {ticker}")
 
-    if not ticker or not isinstance(ticker, str):
-        return "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+    # Validate ticker using new validator
+    try:
+        ticker = validate_ticker(ticker)
+    except TickerValidationError as e:
+        logger.error(f"Ticker validation failed: {e}")
+        return f"Error: {e.message}"
 
     try:
         start_time = time.time()
@@ -453,8 +462,9 @@ def get_analyst_recommendations(ticker: str):
             stock = yf.Ticker(ticker)
             recommendations = stock.recommendations.to_dict()
 
-        if recommendations is None:
-            return "No analyst recommendations available for {ticker}"
+        if not recommendations:
+            logger.warning(f"No analyst recommendations available for {ticker}")
+            return f"No analyst recommendations available for {ticker}"
 
         end_time = time.time()
         logger.info(f"Retrieved Analyst Recommendations of {ticker} in {end_time - start_time:.3f} seconds")
@@ -471,8 +481,12 @@ def get_analyst_recommendations(ticker: str):
 def get_analyst_recommendations_summary(ticker: str):
     logger.info(f"Retrieving Analyst Recommendations Summary of {ticker}")
 
-    if not ticker or not isinstance(ticker, str):
-        return "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+    # Validate ticker using new validator
+    try:
+        ticker = validate_ticker(ticker)
+    except TickerValidationError as e:
+        logger.error(f"Ticker validation failed: {e}")
+        return f"Error: {e.message}"
 
     try:
         start_time = time.time()
@@ -480,8 +494,9 @@ def get_analyst_recommendations_summary(ticker: str):
             stock = yf.Ticker(ticker)
             recommendations = stock.recommendations_summary.to_dict()
 
-        if recommendations is None:
-            return "No analyst recommendations summary available for {ticker}"
+        if not recommendations:
+            logger.warning(f"No analyst recommendations summary available for {ticker}")
+            return f"No analyst recommendations summary available for {ticker}"
 
         end_time = time.time()
         logger.info(f"Retrieved Analyst Recommendations Summary of {ticker} in {end_time - start_time:.3f} seconds")
@@ -496,26 +511,34 @@ def get_analyst_recommendations_summary(ticker: str):
 # --------------------------------------------------------------------------------
 @tool('get_ticker', description="A function that returns the ticker/symbol of a given company")
 def get_ticker(company_name: str):
-    logger.info("Retrieving Ticker of {company_name}")
+    logger.info(f"Retrieving Ticker of {company_name}")
 
     if not company_name or not isinstance(company_name, str):
+        logger.error("Invalid company name provided")
         return "Error: Invalid company name provided. Please provide a valid company name."
 
     try:
         start_time = time.time()
         with throttler.throttle("yfinance"):
             url = f"https://query2.finance.yahoo.com/v1/finance/search?q={company_name}"
-            response = requests.get(url)
+            response = requests.get(url, timeout=10)
 
         if response.status_code == 200:
             data = response.json()
+            if not data.get('quotes') or len(data['quotes']) == 0:
+                logger.warning(f"No ticker found for company: {company_name}")
+                return f"No ticker found for company: {company_name}"
             ticker = data['quotes'][0]['symbol']
             end_time = time.time()
             logger.info(f"Retrieved Ticker of {company_name} in {end_time - start_time:.3f} seconds")
             return ticker
         else:
+            logger.error(f"Failed to retrieve ticker for {company_name}: HTTP {response.status_code}")
             return "Error: Failed to retrieve ticker. Please try again later."
 
+    except (KeyError, IndexError, requests.RequestException) as e:
+        logger.error(f"Failed to retrieve ticker of {company_name}: {str(e)}")
+        return "Error: Failed to retrieve ticker. Please try again later."
     except Exception as e:
         logger.error(f"Failed to retrieve ticker of {company_name}: {str(e)}")
         return "Error: Failed to retrieve ticker. Please try again later."
