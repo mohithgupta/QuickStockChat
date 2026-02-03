@@ -13,11 +13,12 @@ from unittest.mock import Mock, patch, MagicMock
 import pandas as pd
 from datetime import datetime, timedelta
 
-from MarketInsight.utils.tools import (
-    get_stock_price,
-    get_historical_data,
-    get_stock_news,
-    get_balance_sheet
+# Import the raw functions from conftest which unwraps the StructuredTool decorator
+from ..conftest import (
+    get_stock_price_func as get_stock_price,
+    get_historical_data_func as get_historical_data,
+    get_stock_news_func as get_stock_news,
+    get_balance_sheet_func as get_balance_sheet
 )
 
 

@@ -14,11 +14,12 @@ import pandas as pd
 from datetime import datetime, timedelta
 import requests
 
-from MarketInsight.utils.tools import (
-    get_insider_transactions,
-    get_analyst_recommendations,
-    get_analyst_recommendations_summary,
-    get_ticker
+# Import the raw functions from conftest which unwraps the StructuredTool decorator
+from ..conftest import (
+    get_insider_transactions_func as get_insider_transactions,
+    get_analyst_recommendations_func as get_analyst_recommendations,
+    get_analyst_recommendations_summary_func as get_analyst_recommendations_summary,
+    get_ticker_func as get_ticker
 )
 
 

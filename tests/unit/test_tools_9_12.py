@@ -13,11 +13,12 @@ from unittest.mock import Mock, patch, MagicMock
 import pandas as pd
 from datetime import datetime, timedelta
 
-from MarketInsight.utils.tools import (
-    get_splits,
-    get_institutional_holders,
-    get_major_shareholders,
-    get_mutual_fund_holders
+# Import the raw functions from conftest which unwraps the StructuredTool decorator
+from ..conftest import (
+    get_splits_func as get_splits,
+    get_institutional_holders_func as get_institutional_holders,
+    get_major_shareholders_func as get_major_shareholders,
+    get_mutual_fund_holders_func as get_mutual_fund_holders
 )
 
 
@@ -635,15 +636,15 @@ class TestToolsIntegration:
     @patch('MarketInsight.utils.tools.yf.Ticker')
     def test_all_tools_1_12_integration(self, mock_ticker):
         """Test integration of tools 1-8 and 9-12 together"""
-        from MarketInsight.utils.tools import (
-            get_stock_price,
-            get_historical_data,
-            get_stock_news,
-            get_balance_sheet,
-            get_income_statement,
-            get_cash_flow,
-            get_company_info,
-            get_dividends
+        from ..conftest import (
+            get_stock_price_func as get_stock_price,
+            get_historical_data_func as get_historical_data,
+            get_stock_news_func as get_stock_news,
+            get_balance_sheet_func as get_balance_sheet,
+            get_income_statement_func as get_income_statement,
+            get_cash_flow_func as get_cash_flow,
+            get_company_info_func as get_company_info,
+            get_dividends_func as get_dividends
         )
 
         # Setup mock
