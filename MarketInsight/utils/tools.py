@@ -3,7 +3,12 @@ import requests
 import yfinance as yf
 from langchain.tools import tool
 from MarketInsight.utils.logger import get_logger
-from MarketInsight.utils.exceptions import TickerValidationError, ValidationError
+from MarketInsight.utils.exceptions import (
+    TickerValidationError,
+    ValidationError,
+    ExternalServiceError,
+    APIError
+)
 from MarketInsight.utils.validators import validate_ticker, validate_date_string
 from utils.api_throttler import get_throttler
 
@@ -21,9 +26,8 @@ def get_stock_price(ticker: str):
     # Validate ticker using new validator
     try:
         ticker = validate_ticker(ticker)
-    except TickerValidationError as e:
-        logger.error(f"Ticker validation failed: {e}")
-        return f"Error: {e.message}"
+    except TickerValidationError:
+        raise
 
     start_time = time.time()
 
@@ -35,17 +39,27 @@ def get_stock_price(ticker: str):
 
         if stock_price is None:
             logger.warning(f"No price data available for {ticker}")
-            return f"No price data available for {ticker}"
+            raise ExternalServiceError(
+                f"No price data available for {ticker}",
+                service_name="yfinance"
+            )
 
         logger.info(f"Retrieved Stock Price of {ticker} in {end_time - start_time:.3f} seconds")
         return stock_price
 
-    except KeyError as e:
-        logger.error(f"Stock price data not found for {ticker}: {str(e)}")
-        return f"Error: Stock price data not available for {ticker}. The ticker may be invalid or delisted."
+    except KeyError:
+        raise ExternalServiceError(
+            f"Stock price data not available for {ticker}. The ticker may be invalid or delisted.",
+            service_name="yfinance"
+        )
+    except ExternalServiceError:
+        raise
     except Exception as e:
         logger.error(f"Failed to retrieve stock price of {ticker}: {str(e)}")
-        return "Error: Failed to retrieve stock price. Please try again later."
+        raise ExternalServiceError(
+            f"Failed to retrieve stock price. Please try again later.",
+            service_name="yfinance"
+        )
 
 
 # --------------------------------------------------------------------------------
@@ -60,9 +74,8 @@ def get_historical_data(ticker: str, start_date: str, end_date: str):
         ticker = validate_ticker(ticker)
         start_date = validate_date_string(start_date)
         end_date = validate_date_string(end_date)
-    except (TickerValidationError, ValidationError) as e:
-        logger.error(f"Input validation failed: {e}")
-        return f"Error: {e.message}"
+    except (TickerValidationError, ValidationError):
+        raise
 
     try:
         start_time = time.time()
@@ -72,18 +85,28 @@ def get_historical_data(ticker: str, start_date: str, end_date: str):
 
         if not historical_data:
             logger.warning(f"No historical data available for {ticker}")
-            return f"No historical data available for {ticker}"
+            raise ExternalServiceError(
+                f"No historical data available for {ticker}",
+                service_name="yfinance"
+            )
 
         end_time = time.time()
         logger.info(f"Retrieved Historical Data of {ticker} in {end_time - start_time:.3f} seconds")
         return historical_data
 
     except ValueError as e:
-        logger.error(f"Invalid date parameters for {ticker}: {str(e)}")
-        return f"Error: Invalid date parameters. {str(e)}"
+        raise ValidationError(
+            f"Invalid date parameters. {str(e)}",
+            field="date_range"
+        )
+    except ExternalServiceError:
+        raise
     except Exception as e:
         logger.error(f"Failed to retrieve historical data of {ticker}: {str(e)}")
-        return "Error: Failed to retrieve historical data. Please try again later."
+        raise ExternalServiceError(
+            f"Failed to retrieve historical data. Please try again later.",
+            service_name="yfinance"
+        )
 
 
 # --------------------------------------------------------------------------------
@@ -96,9 +119,8 @@ def get_stock_news(ticker: str):
     # Validate ticker using new validator
     try:
         ticker = validate_ticker(ticker)
-    except TickerValidationError as e:
-        logger.error(f"Ticker validation failed: {e}")
-        return f"Error: {e.message}"
+    except TickerValidationError:
+        raise
 
     try:
         start_time = time.time()
@@ -108,15 +130,23 @@ def get_stock_news(ticker: str):
 
         if news is None:
             logger.warning(f"No news available for {ticker}")
-            return f"No news available for {ticker}"
+            raise ExternalServiceError(
+                f"No news available for {ticker}",
+                service_name="yfinance"
+            )
 
         end_time = time.time()
         logger.info(f"Retrieved News of {ticker} in {end_time - start_time:.3f} seconds")
         return news
 
+    except ExternalServiceError:
+        raise
     except Exception as e:
         logger.error(f"Failed to retrieve news of {ticker}: {str(e)}")
-        return "Error: Failed to retrieve news. Please try again later."
+        raise ExternalServiceError(
+            f"Failed to retrieve news. Please try again later.",
+            service_name="yfinance"
+        )
 
 
 # --------------------------------------------------------------------------------
@@ -129,9 +159,8 @@ def get_balance_sheet(ticker: str):
     # Validate ticker using new validator
     try:
         ticker = validate_ticker(ticker)
-    except TickerValidationError as e:
-        logger.error(f"Ticker validation failed: {e}")
-        return f"Error: {e.message}"
+    except TickerValidationError:
+        raise
 
     try:
         start_time = time.time()
@@ -141,15 +170,23 @@ def get_balance_sheet(ticker: str):
 
         if not balance_sheet:
             logger.warning(f"No balance sheet available for {ticker}")
-            return f"No balance sheet available for {ticker}"
+            raise ExternalServiceError(
+                f"No balance sheet available for {ticker}",
+                service_name="yfinance"
+            )
 
         end_time = time.time()
         logger.info(f"Retrieved Balance Sheet of {ticker} in {end_time - start_time:.3f} seconds")
         return balance_sheet
 
+    except ExternalServiceError:
+        raise
     except Exception as e:
         logger.error(f"Failed to retrieve balance sheet of {ticker}: {str(e)}")
-        return "Error: Failed to retrieve balance sheet. Please try again later."
+        raise ExternalServiceError(
+            f"Failed to retrieve balance sheet. Please try again later.",
+            service_name="yfinance"
+        )
 
 
 # --------------------------------------------------------------------------------
@@ -162,9 +199,8 @@ def get_income_statement(ticker: str):
     # Validate ticker using new validator
     try:
         ticker = validate_ticker(ticker)
-    except TickerValidationError as e:
-        logger.error(f"Ticker validation failed: {e}")
-        return f"Error: {e.message}"
+    except TickerValidationError:
+        raise
 
     try:
         start_time = time.time()
@@ -174,15 +210,23 @@ def get_income_statement(ticker: str):
 
         if not income_statement:
             logger.warning(f"No income statement available for {ticker}")
-            return f"No income statement available for {ticker}"
+            raise ExternalServiceError(
+                f"No income statement available for {ticker}",
+                service_name="yfinance"
+            )
 
         end_time = time.time()
         logger.info(f"Retrieved Income Statement of {ticker} in {end_time - start_time:.3f} seconds")
         return income_statement
 
+    except ExternalServiceError:
+        raise
     except Exception as e:
         logger.error(f"Failed to retrieve income statement of {ticker}: {str(e)}")
-        return "Error: Failed to retrieve income statement. Please try again later."
+        raise ExternalServiceError(
+            f"Failed to retrieve income statement. Please try again later.",
+            service_name="yfinance"
+        )
     
 
 # --------------------------------------------------------------------------------
@@ -195,9 +239,8 @@ def get_cash_flow(ticker: str):
     # Validate ticker using new validator
     try:
         ticker = validate_ticker(ticker)
-    except TickerValidationError as e:
-        logger.error(f"Ticker validation failed: {e}")
-        return f"Error: {e.message}"
+    except TickerValidationError:
+        raise
 
     try:
         start_time = time.time()
@@ -207,15 +250,23 @@ def get_cash_flow(ticker: str):
 
         if not cash_flow:
             logger.warning(f"No cash flow available for {ticker}")
-            return f"No cash flow available for {ticker}"
+            raise ExternalServiceError(
+                f"No cash flow available for {ticker}",
+                service_name="yfinance"
+            )
 
         end_time = time.time()
         logger.info(f"Retrieved Cash Flow of {ticker} in {end_time - start_time:.3f} seconds")
         return cash_flow
 
+    except ExternalServiceError:
+        raise
     except Exception as e:
         logger.error(f"Failed to retrieve cash flow of {ticker}: {str(e)}")
-        return "Error: Failed to retrieve cash flow. Please try again later."
+        raise ExternalServiceError(
+            f"Failed to retrieve cash flow. Please try again later.",
+            service_name="yfinance"
+        )
 
 # --------------------------------------------------------------------------------
 # Tool 7: Retrieve Company Info & Ratios
@@ -227,9 +278,8 @@ def get_company_info(ticker: str):
     # Validate ticker using new validator
     try:
         ticker = validate_ticker(ticker)
-    except TickerValidationError as e:
-        logger.error(f"Ticker validation failed: {e}")
-        return f"Error: {e.message}"
+    except TickerValidationError:
+        raise
 
     try:
         start_time = time.time()
@@ -239,15 +289,23 @@ def get_company_info(ticker: str):
 
         if info is None:
             logger.warning(f"No company info available for {ticker}")
-            return f"No company info available for {ticker}"
+            raise ExternalServiceError(
+                f"No company info available for {ticker}",
+                service_name="yfinance"
+            )
 
         end_time = time.time()
         logger.info(f"Retrieved Company Info of {ticker} in {end_time - start_time:.3f} seconds")
         return info
 
+    except ExternalServiceError:
+        raise
     except Exception as e:
         logger.error(f"Failed to retrieve company info of {ticker}: {str(e)}")
-        return "Error: Failed to retrieve company info. Please try again later."
+        raise ExternalServiceError(
+            f"Failed to retrieve company info. Please try again later.",
+            service_name="yfinance"
+        )
 
 # --------------------------------------------------------------------------------
 # Tool 8: Retrieve Dividend History
@@ -259,9 +317,8 @@ def get_dividends(ticker: str):
     # Validate ticker using new validator
     try:
         ticker = validate_ticker(ticker)
-    except TickerValidationError as e:
-        logger.error(f"Ticker validation failed: {e}")
-        return f"Error: {e.message}"
+    except TickerValidationError:
+        raise
 
     try:
         start_time = time.time()
@@ -271,15 +328,23 @@ def get_dividends(ticker: str):
 
         if not dividends:
             logger.warning(f"No dividends available for {ticker}")
-            return f"No dividends available for {ticker}"
+            raise ExternalServiceError(
+                f"No dividends available for {ticker}",
+                service_name="yfinance"
+            )
 
         end_time = time.time()
         logger.info(f"Retrieved Dividends of {ticker} in {end_time - start_time:.3f} seconds")
         return dividends
 
+    except ExternalServiceError:
+        raise
     except Exception as e:
         logger.error(f"Failed to retrieve dividends of {ticker}: {str(e)}")
-        return "Error: Failed to retrieve dividends. Please try again later."
+        raise ExternalServiceError(
+            f"Failed to retrieve dividends. Please try again later.",
+            service_name="yfinance"
+        )
 
 # --------------------------------------------------------------------------------
 # Tool 9: Retrieve Stock Split History
@@ -291,9 +356,8 @@ def get_splits(ticker: str):
     # Validate ticker using new validator
     try:
         ticker = validate_ticker(ticker)
-    except TickerValidationError as e:
-        logger.error(f"Ticker validation failed: {e}")
-        return f"Error: {e.message}"
+    except TickerValidationError:
+        raise
 
     try:
         start_time = time.time()
@@ -303,15 +367,23 @@ def get_splits(ticker: str):
 
         if not splits:
             logger.warning(f"No stock splits available for {ticker}")
-            return f"No stock splits available for {ticker}"
+            raise ExternalServiceError(
+                f"No stock splits available for {ticker}",
+                service_name="yfinance"
+            )
 
         end_time = time.time()
         logger.info(f"Retrieved Stock Splits of {ticker} in {end_time - start_time:.3f} seconds")
         return splits
 
+    except ExternalServiceError:
+        raise
     except Exception as e:
         logger.error(f"Failed to retrieve stock splits of {ticker}: {str(e)}")
-        return "Error: Failed to retrieve stock splits. Please try again later."
+        raise ExternalServiceError(
+            f"Failed to retrieve stock splits. Please try again later.",
+            service_name="yfinance"
+        )
 
 
 # --------------------------------------------------------------------------------
@@ -324,9 +396,8 @@ def get_institutional_holders(ticker: str):
     # Validate ticker using new validator
     try:
         ticker = validate_ticker(ticker)
-    except TickerValidationError as e:
-        logger.error(f"Ticker validation failed: {e}")
-        return f"Error: {e.message}"
+    except TickerValidationError:
+        raise
 
     try:
         start_time = time.time()
@@ -336,15 +407,23 @@ def get_institutional_holders(ticker: str):
 
         if not holders:
             logger.warning(f"No institutional holders available for {ticker}")
-            return f"No institutional holders available for {ticker}"
+            raise ExternalServiceError(
+                f"No institutional holders available for {ticker}",
+                service_name="yfinance"
+            )
 
         end_time = time.time()
         logger.info(f"Retrieved Institutional Holders of {ticker} in {end_time - start_time:.3f} seconds")
         return holders
 
+    except ExternalServiceError:
+        raise
     except Exception as e:
         logger.error(f"Failed to retrieve institutional holders of {ticker}: {str(e)}")
-        return "Error: Failed to retrieve institutional holders. Please try again later."
+        raise ExternalServiceError(
+            f"Failed to retrieve institutional holders. Please try again later.",
+            service_name="yfinance"
+        )
 
 # --------------------------------------------------------------------------------
 # Tool 11: Retrieve Major Share Holders
@@ -356,9 +435,8 @@ def get_major_shareholders(ticker: str):
     # Validate ticker using new validator
     try:
         ticker = validate_ticker(ticker)
-    except TickerValidationError as e:
-        logger.error(f"Ticker validation failed: {e}")
-        return f"Error: {e.message}"
+    except TickerValidationError:
+        raise
 
     try:
         start_time = time.time()
@@ -368,15 +446,23 @@ def get_major_shareholders(ticker: str):
 
         if not holders:
             logger.warning(f"No major share holders available for {ticker}")
-            return f"No major share holders available for {ticker}"
+            raise ExternalServiceError(
+                f"No major share holders available for {ticker}",
+                service_name="yfinance"
+            )
 
         end_time = time.time()
         logger.info(f"Retrieved Major Share Holders of {ticker} in {end_time - start_time:.3f} seconds")
         return holders
 
+    except ExternalServiceError:
+        raise
     except Exception as e:
         logger.error(f"Failed to retrieve major share holders of {ticker}: {str(e)}")
-        return "Error: Failed to retrieve major share holders. Please try again later."
+        raise ExternalServiceError(
+            f"Failed to retrieve major share holders. Please try again later.",
+            service_name="yfinance"
+        )
 
 # --------------------------------------------------------------------------------
 # Tool 12: Retrieve Mutual Fund Holders
@@ -388,9 +474,8 @@ def get_mutual_fund_holders(ticker: str):
     # Validate ticker using new validator
     try:
         ticker = validate_ticker(ticker)
-    except TickerValidationError as e:
-        logger.error(f"Ticker validation failed: {e}")
-        return f"Error: {e.message}"
+    except TickerValidationError:
+        raise
 
     try:
         start_time = time.time()
@@ -400,15 +485,23 @@ def get_mutual_fund_holders(ticker: str):
 
         if not holders:
             logger.warning(f"No mutual fund holders available for {ticker}")
-            return f"No mutual fund holders available for {ticker}"
+            raise ExternalServiceError(
+                f"No mutual fund holders available for {ticker}",
+                service_name="yfinance"
+            )
 
         end_time = time.time()
         logger.info(f"Retrieved Mutual Fund Holders of {ticker} in {end_time - start_time:.3f} seconds")
         return holders
 
+    except ExternalServiceError:
+        raise
     except Exception as e:
         logger.error(f"Failed to retrieve mutual fund holders of {ticker}: {str(e)}")
-        return "Error: Failed to retrieve mutual fund holders. Please try again later."
+        raise ExternalServiceError(
+            f"Failed to retrieve mutual fund holders. Please try again later.",
+            service_name="yfinance"
+        )
 
 # --------------------------------------------------------------------------------
 # Tool 13: Retrieve Insider Transactions
@@ -420,9 +513,8 @@ def get_insider_transactions(ticker: str):
     # Validate ticker using new validator
     try:
         ticker = validate_ticker(ticker)
-    except TickerValidationError as e:
-        logger.error(f"Ticker validation failed: {e}")
-        return f"Error: {e.message}"
+    except TickerValidationError:
+        raise
 
     try:
         start_time = time.time()
@@ -432,15 +524,23 @@ def get_insider_transactions(ticker: str):
 
         if not insider_txn:
             logger.warning(f"No insider transactions available for {ticker}")
-            return f"No insider transactions available for {ticker}"
+            raise ExternalServiceError(
+                f"No insider transactions available for {ticker}",
+                service_name="yfinance"
+            )
 
         end_time = time.time()
         logger.info(f"Retrieved Insider Transactions of {ticker} in {end_time - start_time:.3f} seconds")
         return insider_txn
 
+    except ExternalServiceError:
+        raise
     except Exception as e:
         logger.error(f"Failed to retrieve insider transactions of {ticker}: {str(e)}")
-        return "Error: Failed to retrieve insider transactions. Please try again later."
+        raise ExternalServiceError(
+            f"Failed to retrieve insider transactions. Please try again later.",
+            service_name="yfinance"
+        )
 
 # --------------------------------------------------------------------------------
 # Tool 14: Retrieve Analyst Recommendations
@@ -452,9 +552,8 @@ def get_analyst_recommendations(ticker: str):
     # Validate ticker using new validator
     try:
         ticker = validate_ticker(ticker)
-    except TickerValidationError as e:
-        logger.error(f"Ticker validation failed: {e}")
-        return f"Error: {e.message}"
+    except TickerValidationError:
+        raise
 
     try:
         start_time = time.time()
@@ -464,15 +563,23 @@ def get_analyst_recommendations(ticker: str):
 
         if not recommendations:
             logger.warning(f"No analyst recommendations available for {ticker}")
-            return f"No analyst recommendations available for {ticker}"
+            raise ExternalServiceError(
+                f"No analyst recommendations available for {ticker}",
+                service_name="yfinance"
+            )
 
         end_time = time.time()
         logger.info(f"Retrieved Analyst Recommendations of {ticker} in {end_time - start_time:.3f} seconds")
         return recommendations
 
+    except ExternalServiceError:
+        raise
     except Exception as e:
         logger.error(f"Failed to retrieve analyst recommendations of {ticker}: {str(e)}")
-        return "Error: Failed to retrieve analyst recommendations. Please try again later."
+        raise ExternalServiceError(
+            f"Failed to retrieve analyst recommendations. Please try again later.",
+            service_name="yfinance"
+        )
 
 # --------------------------------------------------------------------------------
 # Tool 15: Retrieve Analyst Recommendations Summary
@@ -484,9 +591,8 @@ def get_analyst_recommendations_summary(ticker: str):
     # Validate ticker using new validator
     try:
         ticker = validate_ticker(ticker)
-    except TickerValidationError as e:
-        logger.error(f"Ticker validation failed: {e}")
-        return f"Error: {e.message}"
+    except TickerValidationError:
+        raise
 
     try:
         start_time = time.time()
@@ -496,15 +602,23 @@ def get_analyst_recommendations_summary(ticker: str):
 
         if not recommendations:
             logger.warning(f"No analyst recommendations summary available for {ticker}")
-            return f"No analyst recommendations summary available for {ticker}"
+            raise ExternalServiceError(
+                f"No analyst recommendations summary available for {ticker}",
+                service_name="yfinance"
+            )
 
         end_time = time.time()
         logger.info(f"Retrieved Analyst Recommendations Summary of {ticker} in {end_time - start_time:.3f} seconds")
         return recommendations
 
+    except ExternalServiceError:
+        raise
     except Exception as e:
         logger.error(f"Failed to retrieve analyst recommendations summary of {ticker}: {str(e)}")
-        return "Error: Failed to retrieve analyst recommendations summary. Please try again later."
+        raise ExternalServiceError(
+            f"Failed to retrieve analyst recommendations summary. Please try again later.",
+            service_name="yfinance"
+        )
 
 # --------------------------------------------------------------------------------
 # Tool 16: Retrieve Company's Ticker/Symbol
@@ -515,7 +629,10 @@ def get_ticker(company_name: str):
 
     if not company_name or not isinstance(company_name, str):
         logger.error("Invalid company name provided")
-        return "Error: Invalid company name provided. Please provide a valid company name."
+        raise ValidationError(
+            "Invalid company name provided. Please provide a valid company name.",
+            field="company_name"
+        )
 
     try:
         start_time = time.time()
@@ -527,18 +644,33 @@ def get_ticker(company_name: str):
             data = response.json()
             if not data.get('quotes') or len(data['quotes']) == 0:
                 logger.warning(f"No ticker found for company: {company_name}")
-                return f"No ticker found for company: {company_name}"
+                raise ExternalServiceError(
+                    f"No ticker found for company: {company_name}",
+                    service_name="yahoo_finance"
+                )
             ticker = data['quotes'][0]['symbol']
             end_time = time.time()
             logger.info(f"Retrieved Ticker of {company_name} in {end_time - start_time:.3f} seconds")
             return ticker
         else:
             logger.error(f"Failed to retrieve ticker for {company_name}: HTTP {response.status_code}")
-            return "Error: Failed to retrieve ticker. Please try again later."
+            raise ExternalServiceError(
+                f"Failed to retrieve ticker. Please try again later.",
+                service_name="yahoo_finance",
+                status_code=response.status_code
+            )
 
+    except ExternalServiceError:
+        raise
     except (KeyError, IndexError, requests.RequestException) as e:
         logger.error(f"Failed to retrieve ticker of {company_name}: {str(e)}")
-        return "Error: Failed to retrieve ticker. Please try again later."
+        raise ExternalServiceError(
+            f"Failed to retrieve ticker. Please try again later.",
+            service_name="yahoo_finance"
+        )
     except Exception as e:
         logger.error(f"Failed to retrieve ticker of {company_name}: {str(e)}")
-        return "Error: Failed to retrieve ticker. Please try again later."
+        raise ExternalServiceError(
+            f"Failed to retrieve ticker. Please try again later.",
+            service_name="yahoo_finance"
+        )
