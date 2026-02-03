@@ -8,7 +8,7 @@ consistent error responses across the application.
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
-from MarketInsight.utils.exceptions import ValidationError, MarketInsightError
+from MarketInsight.utils.exceptions import ValidationError, MarketInsightError, TickerValidationError, ExternalServiceError
 from MarketInsight.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -43,9 +43,15 @@ async def validation_error_handler(request: Request, exc: ValidationError):
 
 async def market_insight_error_handler(request: Request, exc: MarketInsightError):
     """Handle all MarketInsight-specific errors"""
-    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    # Determine appropriate status code based on error type
     if hasattr(exc, 'status_code') and exc.status_code:
         status_code = exc.status_code
+    elif exc.__class__.__name__ in ['TickerValidationError', 'ValidationError']:
+        status_code = status.HTTP_400_BAD_REQUEST
+    elif exc.__class__.__name__ == 'ExternalServiceError':
+        status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    else:
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
 
     logger.error(f"MarketInsight error: {exc.__class__.__name__} - {exc.message}")
     return JSONResponse(

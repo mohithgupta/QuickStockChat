@@ -80,30 +80,15 @@ async def get_stock_price_chart(
         HTTPException 503: If external service (yfinance) is unavailable
     """
     # Validate ticker symbol
-    try:
-        validated_ticker = validate_ticker(ticker)
-    except TickerValidationError as e:
-        logger.warning(f"Ticker validation failed for chart request: {e.message}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": e.message,
-                "error_type": "TickerValidationError",
-                "field": "ticker"
-            }
-        )
+    validated_ticker = validate_ticker(ticker)
 
     # Validate period parameter
     valid_periods = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"]
     if period not in valid_periods:
-        logger.warning(f"Invalid period parameter: {period}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": f"Invalid period '{period}'. Must be one of: {', '.join(valid_periods)}",
-                "error_type": "ValidationError",
-                "field": "period"
-            }
+        raise ValidationError(
+            message=f"Invalid period '{period}'. Must be one of: {', '.join(valid_periods)}",
+            field="period",
+            details={"valid_periods": valid_periods, "provided": period}
         )
 
     try:
@@ -115,14 +100,10 @@ async def get_stock_price_chart(
         # Check if data is available
         if hist is None or hist.empty:
             logger.warning(f"No historical data available for {validated_ticker} with period {period}")
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={
-                    "error": f"No historical data available for {validated_ticker} with the specified period",
-                    "error_type": "ExternalServiceError",
-                    "ticker": validated_ticker,
-                    "period": period
-                }
+            raise ExternalServiceError(
+                message=f"No historical data available for {validated_ticker} with the specified period",
+                service_name="yfinance",
+                details={"ticker": validated_ticker, "period": period}
             )
 
         # Convert DataFrame to list of ChartDataPoint
@@ -165,17 +146,12 @@ async def get_stock_price_chart(
         logger.info(f"Successfully retrieved chart data for {validated_ticker} ({period}): {len(data_points)} data points")
         return response
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Failed to retrieve chart data for {validated_ticker}: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={
-                "error": "Failed to retrieve stock price data. Please try again later.",
-                "error_type": "ExternalServiceError",
-                "service": "yfinance"
-            }
+        raise ExternalServiceError(
+            message="Failed to retrieve stock price data. Please try again later.",
+            service_name="yfinance",
+            details={"ticker": validated_ticker, "period": period, "original_error": str(e)}
         )
 
 
@@ -208,30 +184,15 @@ async def get_financial_statement_chart(
         HTTPException 503: If external service (yfinance) is unavailable
     """
     # Validate ticker symbol
-    try:
-        validated_ticker = validate_ticker(ticker)
-    except TickerValidationError as e:
-        logger.warning(f"Ticker validation failed for financial statement request: {e.message}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": e.message,
-                "error_type": "TickerValidationError",
-                "field": "ticker"
-            }
-        )
+    validated_ticker = validate_ticker(ticker)
 
     # Validate statement_type parameter
     valid_statement_types = ["income", "balance", "cash_flow"]
     if statement_type not in valid_statement_types:
-        logger.warning(f"Invalid statement_type parameter: {statement_type}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": f"Invalid statement_type '{statement_type}'. Must be one of: {', '.join(valid_statement_types)}",
-                "error_type": "ValidationError",
-                "field": "statement_type"
-            }
+        raise ValidationError(
+            message=f"Invalid statement_type '{statement_type}'. Must be one of: {', '.join(valid_statement_types)}",
+            field="statement_type",
+            details={"valid_statement_types": valid_statement_types, "provided": statement_type}
         )
 
     try:
@@ -253,14 +214,10 @@ async def get_financial_statement_chart(
         # Check if data is available
         if financial_data is None or financial_data.empty:
             logger.warning(f"No financial statement data available for {validated_ticker} with type {statement_type}")
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={
-                    "error": f"No financial statement data available for {validated_ticker} with the specified type",
-                    "error_type": "ExternalServiceError",
-                    "ticker": validated_ticker,
-                    "statement_type": statement_type
-                }
+            raise ExternalServiceError(
+                message=f"No financial statement data available for {validated_ticker} with the specified type",
+                service_name="yfinance",
+                details={"ticker": validated_ticker, "statement_type": statement_type}
             )
 
         # Convert DataFrame columns to list of ChartDataPoint
@@ -314,17 +271,12 @@ async def get_financial_statement_chart(
         logger.info(f"Successfully retrieved {statement_type} statement data for {validated_ticker}: {len(data_points)} data points")
         return response
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(f"Failed to retrieve financial statement data for {validated_ticker}: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={
-                "error": "Failed to retrieve financial statement data. Please try again later.",
-                "error_type": "ExternalServiceError",
-                "service": "yfinance"
-            }
+        raise ExternalServiceError(
+            message="Failed to retrieve financial statement data. Please try again later.",
+            service_name="yfinance",
+            details={"ticker": validated_ticker, "statement_type": statement_type, "original_error": str(e)}
         )
 
 
