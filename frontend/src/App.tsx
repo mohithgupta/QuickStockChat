@@ -4,7 +4,8 @@ import '@crayonai/react-ui/styles/index.css'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import { StockPriceChart } from './components/charts/StockPriceChart'
-import { fetchStockPriceChart, transformStockPriceData } from './services/chartApi'
+import { FinancialStatementChart } from './components/charts/FinancialStatementChart'
+import { fetchStockPriceChart, transformStockPriceData, fetchFinancialStatementChart, transformFinancialStatementData } from './services/chartApi'
 
 // API configuration from environment variables
 const API_URL = import.meta.env.VITE_API_URL || 'https://marketinsight-skgl.onrender.com/api/chat'
@@ -114,6 +115,22 @@ const STOCK_QUERY_KEYWORDS = [
   'investment'
 ]
 
+// Keywords that indicate financial statement queries
+const FINANCIAL_STATEMENT_KEYWORDS = [
+  'income statement',
+  'balance sheet',
+  'cash flow',
+  'financial statement',
+  'financial data',
+  'revenue',
+  'expenses',
+  'assets',
+  'liabilities',
+  'equity',
+  'profit',
+  'loss'
+]
+
 /**
  * Detects if a message is asking about stock prices
  * and extracts stock tickers from the message
@@ -141,6 +158,47 @@ function detectStockQuery(message: string): string[] | null {
   const tickers = matches.filter(match => !excludedWords.includes(match))
 
   return tickers.length > 0 ? tickers : null
+}
+
+/**
+ * Detects if a message is asking about financial statements
+ * and extracts the statement type and ticker
+ */
+function detectFinancialStatementQuery(message: string): { ticker: string; statementType: 'income' | 'balance' | 'cash_flow' } | null {
+  const lowerMessage = message.toLowerCase()
+
+  // Check if message contains financial statement keywords
+  const hasFinancialKeyword = FINANCIAL_STATEMENT_KEYWORDS.some(keyword =>
+    lowerMessage.includes(keyword)
+  )
+
+  if (!hasFinancialKeyword) {
+    return null
+  }
+
+  // Determine statement type from message
+  let statementType: 'income' | 'balance' | 'cash_flow' = 'income'
+  if (lowerMessage.includes('balance sheet')) {
+    statementType = 'balance'
+  } else if (lowerMessage.includes('cash flow')) {
+    statementType = 'cash_flow'
+  }
+
+  // Extract potential stock tickers (2-5 uppercase letters)
+  const matches = message.match(STOCK_TICKER_PATTERN)
+  if (!matches || matches.length === 0) {
+    return null
+  }
+
+  // Filter out common non-ticker words
+  const excludedWords = ['THE', 'AND', 'FOR', 'ARE', 'BUT', 'NOT', 'YOU', 'ALL', 'CAN', 'HAD', 'HER', 'WAS', 'ONE', 'OUR', 'OUT', 'HAS', 'HAVE', 'BEEN', 'WITH', 'THIS', 'THAT', 'FROM', 'THEY', 'WOULD', 'THERE', 'THEIR', 'ABOUT', 'COULD', 'AFTER']
+  const tickers = matches.filter(match => !excludedWords.includes(match))
+
+  if (tickers.length === 0) {
+    return null
+  }
+
+  return { ticker: tickers[0], statementType }
 }
 
 /**
@@ -201,7 +259,81 @@ function renderChartForTicker(
         existingChartContainers.delete(messageId)
       }
     })
-    .catch(error => {
+    .catch(() => {
+      // Silently fail - don't show error to user
+      chartContainer.remove()
+      existingChartContainers.delete(messageId)
+    })
+}
+
+/**
+ * Creates a chart container and renders the FinancialStatementChart component
+ */
+function renderFinancialStatementChart(
+  ticker: string,
+  statementType: 'income' | 'balance' | 'cash_flow',
+  messageElement: HTMLElement,
+  existingChartContainers: Map<string, HTMLElement>
+): void {
+  // Check if we already rendered a chart for this message
+  const messageId = messageElement.getAttribute('data-financial-chart-id') || `${Date.now()}-${Math.random()}`
+  messageElement.setAttribute('data-financial-chart-id', messageId)
+
+  if (existingChartContainers.has(messageId)) {
+    return
+  }
+
+  // Create a container for the chart
+  const chartContainer = document.createElement('div')
+  chartContainer.className = 'financial-chart-container'
+  chartContainer.style.cssText = `
+    margin-top: 16px;
+    margin-bottom: 16px;
+    padding: 16px;
+    background-color: #1a1a1a;
+    border-radius: 8px;
+    border: 1px solid #333;
+  `
+
+  // Insert the chart container after the message content
+  messageElement.appendChild(chartContainer)
+  existingChartContainers.set(messageId, chartContainer)
+
+  // Create a React root and render the chart
+  const root = createRoot(chartContainer)
+
+  // Determine title based on statement type
+  const statementTypeLabels: Record<string, string> = {
+    income: 'Income Statement',
+    balance: 'Balance Sheet',
+    cash_flow: 'Cash Flow Statement'
+  }
+  const title = `${ticker} ${statementTypeLabels[statementType]}`
+
+  // Fetch chart data and render
+  fetchFinancialStatementChart({ ticker, statementType })
+    .then(response => {
+      const financialData = transformFinancialStatementData(response)
+
+      if (financialData.length > 0) {
+        root.render(
+          <FinancialStatementChart
+            data={financialData}
+            chartType="bar"
+            title={title}
+            height={300}
+            showLegend={true}
+            showGrid={true}
+            enableZoom={true}
+            enableBrush={true}
+          />
+        )
+      } else {
+        chartContainer.remove()
+        existingChartContainers.delete(messageId)
+      }
+    })
+    .catch(() => {
       // Silently fail - don't show error to user
       chartContainer.remove()
       existingChartContainers.delete(messageId)
@@ -386,7 +518,7 @@ function App() {
     }
   }, [showRecommendations, hasMessages, handleRecommendationClick])
 
-  // Monitor chat messages for stock queries and render charts
+  // Monitor chat messages for stock queries and financial statement queries and render charts
   useEffect(() => {
     const checkMessagesAndRenderCharts = () => {
       // Find all message elements in the chat
@@ -406,18 +538,33 @@ function App() {
           return
         }
 
-        // Check if this is a user message or assistant message containing stock query
-        const tickers = detectStockQuery(textContent)
-        if (tickers && tickers.length > 0) {
+        // Check if this is a user message or assistant message containing financial statement query
+        const financialQuery = detectFinancialStatementQuery(textContent)
+        if (financialQuery) {
           // Mark as processed
           messageElement.setAttribute('data-chart-processed', 'true')
 
-          // Render chart for the first ticker found
-          const ticker = tickers[0]
-          renderChartForTicker(ticker, messageElement, chartContainerRef.current)
+          // Render financial statement chart
+          renderFinancialStatementChart(
+            financialQuery.ticker,
+            financialQuery.statementType,
+            messageElement,
+            chartContainerRef.current
+          )
         } else {
-          // Mark as processed even if no stock query found
-          messageElement.setAttribute('data-chart-processed', 'true')
+          // Check if this is a stock price query
+          const tickers = detectStockQuery(textContent)
+          if (tickers && tickers.length > 0) {
+            // Mark as processed
+            messageElement.setAttribute('data-chart-processed', 'true')
+
+            // Render chart for the first ticker found
+            const ticker = tickers[0]
+            renderChartForTicker(ticker, messageElement, chartContainerRef.current)
+          } else {
+            // Mark as processed even if no query found
+            messageElement.setAttribute('data-chart-processed', 'true')
+          }
         }
       })
     }
