@@ -159,8 +159,12 @@ def get_balance_sheet(ticker: str):
 def get_income_statement(ticker: str):
     logger.info(f"Retrieving Income Statement of {ticker}")
 
-    if not ticker or not isinstance(ticker, str):
-        return "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+    # Validate ticker using new validator
+    try:
+        ticker = validate_ticker(ticker)
+    except TickerValidationError as e:
+        logger.error(f"Ticker validation failed: {e}")
+        return f"Error: {e.message}"
 
     try:
         start_time = time.time()
@@ -168,8 +172,9 @@ def get_income_statement(ticker: str):
             stock = yf.Ticker(ticker)
             income_statement = stock.financials.to_dict()
 
-        if income_statement is None:
-            return "No income statement available for {ticker}"
+        if not income_statement:
+            logger.warning(f"No income statement available for {ticker}")
+            return f"No income statement available for {ticker}"
 
         end_time = time.time()
         logger.info(f"Retrieved Income Statement of {ticker} in {end_time - start_time:.3f} seconds")
@@ -187,8 +192,12 @@ def get_income_statement(ticker: str):
 def get_cash_flow(ticker: str):
     logger.info(f"Retrieving Cash Flow of {ticker}")
 
-    if not ticker or not isinstance(ticker, str):
-        return "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+    # Validate ticker using new validator
+    try:
+        ticker = validate_ticker(ticker)
+    except TickerValidationError as e:
+        logger.error(f"Ticker validation failed: {e}")
+        return f"Error: {e.message}"
 
     try:
         start_time = time.time()
@@ -196,8 +205,9 @@ def get_cash_flow(ticker: str):
             stock = yf.Ticker(ticker)
             cash_flow = stock.cashflow.to_dict()
 
-        if cash_flow is None:
-            return "No cash flow available for {ticker}"
+        if not cash_flow:
+            logger.warning(f"No cash flow available for {ticker}")
+            return f"No cash flow available for {ticker}"
 
         end_time = time.time()
         logger.info(f"Retrieved Cash Flow of {ticker} in {end_time - start_time:.3f} seconds")
@@ -214,8 +224,12 @@ def get_cash_flow(ticker: str):
 def get_company_info(ticker: str):
     logger.info(f"Retrieving Company Info of {ticker}")
 
-    if not ticker or not isinstance(ticker, str):
-        return "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+    # Validate ticker using new validator
+    try:
+        ticker = validate_ticker(ticker)
+    except TickerValidationError as e:
+        logger.error(f"Ticker validation failed: {e}")
+        return f"Error: {e.message}"
 
     try:
         start_time = time.time()
@@ -224,7 +238,8 @@ def get_company_info(ticker: str):
             info = stock.info
 
         if info is None:
-            return "No company info available for {ticker}"
+            logger.warning(f"No company info available for {ticker}")
+            return f"No company info available for {ticker}"
 
         end_time = time.time()
         logger.info(f"Retrieved Company Info of {ticker} in {end_time - start_time:.3f} seconds")
@@ -241,8 +256,12 @@ def get_company_info(ticker: str):
 def get_dividends(ticker: str):
     logger.info(f"Retrieving Dividends of {ticker}")
 
-    if not ticker or not isinstance(ticker, str):
-        return "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+    # Validate ticker using new validator
+    try:
+        ticker = validate_ticker(ticker)
+    except TickerValidationError as e:
+        logger.error(f"Ticker validation failed: {e}")
+        return f"Error: {e.message}"
 
     try:
         start_time = time.time()
@@ -250,8 +269,9 @@ def get_dividends(ticker: str):
             stock = yf.Ticker(ticker)
             dividends = stock.dividends.to_dict()
 
-        if dividends is None:
-            return "No dividends available for {ticker}"
+        if not dividends:
+            logger.warning(f"No dividends available for {ticker}")
+            return f"No dividends available for {ticker}"
 
         end_time = time.time()
         logger.info(f"Retrieved Dividends of {ticker} in {end_time - start_time:.3f} seconds")
