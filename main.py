@@ -14,57 +14,14 @@ from MarketInsight.utils.exceptions import ValidationError, MarketInsightError
 from middleware.rate_limiter import limiter
 from middleware.security_headers import SecurityHeadersMiddleware
 from middleware.auth import get_api_key
-from slowapi.errors import RateLimitExceeded
+from middleware.error_handlers import register_exception_handlers
 
 logger = get_logger(__name__)
 app = FastAPI()
 app.state.limiter = limiter
 
-# Add rate limit error handler
-@app.exception_handler(RateLimitExceeded)
-async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
-    """Handle rate limit exceeded errors with a clear message"""
-    return JSONResponse(
-        status_code=429,
-        content={
-            "detail": "Rate limit exceeded. Please try again later.",
-            "error": "rate_limit_exceeded"
-        },
-        headers={"Retry-After": "60"}
-    )
-
-
-# Add validation error handler
-@app.exception_handler(ValidationError)
-async def validation_error_handler(request: Request, exc: ValidationError):
-    """Handle validation errors with user-friendly messages"""
-    return JSONResponse(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        content={
-            "error": exc.message,
-            "error_type": "ValidationError",
-            "field": exc.field,
-            "details": exc.details
-        }
-    )
-
-
-# Add generic MarketInsight error handler
-@app.exception_handler(MarketInsightError)
-async def market_insight_error_handler(request: Request, exc: MarketInsightError):
-    """Handle all MarketInsight-specific errors"""
-    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-    if hasattr(exc, 'status_code') and exc.status_code:
-        status_code = exc.status_code
-
-    return JSONResponse(
-        status_code=status_code,
-        content={
-            "error": exc.message,
-            "error_type": exc.__class__.__name__,
-            "details": exc.details
-        }
-    )
+# Register global exception handlers
+register_exception_handlers(app)
 
 # Configure CORS with environment-based whitelist
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
