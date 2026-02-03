@@ -10,7 +10,9 @@ import {
   YAxis,
   Tooltip,
   Legend,
-  CartesianGrid
+  CartesianGrid,
+  Brush,
+  ReferenceArea
 } from 'recharts'
 
 // Types for financial statement data
@@ -42,6 +44,9 @@ export interface FinancialStatementChartProps {
   xAxisLabel?: string
   yAxisLabel?: string
   showDataLabels?: boolean
+  enableZoom?: boolean
+  enableBrush?: boolean
+  brushHeight?: number
 }
 
 // Default colors for charts
@@ -98,7 +103,10 @@ const BarChartView = ({
   showGrid,
   showLegend,
   xAxisLabel,
-  yAxisLabel
+  yAxisLabel,
+  enableZoom,
+  enableBrush,
+  brushHeight
 }: {
   data: FinancialDataPoint[]
   colors?: string[]
@@ -107,6 +115,9 @@ const BarChartView = ({
   showLegend?: boolean
   xAxisLabel?: string
   yAxisLabel?: string
+  enableZoom?: boolean
+  enableBrush?: boolean
+  brushHeight?: number
 }) => {
   const handleClick = useCallback(
     (data: any) => {
@@ -117,33 +128,127 @@ const BarChartView = ({
     [onDataPointClick]
   )
 
+  const [zoomArea, setZoomArea] = useState<{ startIndex?: number; endIndex?: number } | null>(null)
+  const [filteredData, setFilteredData] = useState<FinancialDataPoint[]>(data)
+  const [isZoomed, setIsZoomed] = useState(false)
+
   const chartColors = colors || DEFAULT_COLORS
 
+  // Handle zoom selection
+  const handleMouseDown = useCallback((chartData: any) => {
+    if (enableZoom) {
+      setZoomArea({ startIndex: chartData.activeTooltipIndex })
+    }
+  }, [enableZoom])
+
+  const handleMouseMove = useCallback((chartData: any) => {
+    if (enableZoom && zoomArea && zoomArea.startIndex !== undefined) {
+      setZoomArea({ ...zoomArea, endIndex: chartData.activeTooltipIndex })
+    }
+  }, [enableZoom, zoomArea])
+
+  const handleMouseUp = useCallback(() => {
+    if (enableZoom && zoomArea && zoomArea.startIndex !== undefined && zoomArea.endIndex !== undefined) {
+      const start = Math.min(zoomArea.startIndex, zoomArea.endIndex)
+      const end = Math.max(zoomArea.startIndex, zoomArea.endIndex)
+      if (end - start > 1) {
+        setFilteredData(data.slice(start, end + 1))
+        setIsZoomed(true)
+      }
+    }
+    setZoomArea(null)
+  }, [enableZoom, zoomArea, data])
+
+  // Reset zoom
+  const handleResetZoom = useCallback(() => {
+    setFilteredData(data)
+    setIsZoomed(false)
+  }, [data])
+
+  // Handle brush change
+  const handleBrushChange = useCallback((brushData: any) => {
+    if (enableBrush && brushData && brushData.startIndex !== undefined && brushData.endIndex !== undefined) {
+      const start = Math.min(brushData.startIndex, brushData.endIndex)
+      const end = Math.max(brushData.startIndex, brushData.endIndex)
+      setFilteredData(data.slice(start, end + 1))
+      setIsZoomed(true)
+    }
+  }, [enableBrush, data])
+
+  const displayData = isZoomed ? filteredData : data
+
   return (
-    <BarChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-      {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#333" />}
-      <XAxis
-        dataKey="label"
-        stroke="#888"
-        style={{ fontSize: '12px' }}
-        tick={{ fill: '#888' }}
-        label={xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -5, fill: '#888' } : undefined}
-      />
-      <YAxis
-        stroke="#888"
-        style={{ fontSize: '12px' }}
-        tick={{ fill: '#888' }}
-        label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft', fill: '#888' } : undefined}
-      />
-      <Tooltip content={<CustomTooltip />} />
-      {showLegend && <Legend />}
-      <Bar
-        dataKey="value"
-        fill={chartColors[0]}
-        onClick={handleClick}
-        name="Value"
-      />
-    </BarChart>
+    <div style={{ position: 'relative' }}>
+      {isZoomed && (
+        <button
+          onClick={handleResetZoom}
+          style={{
+            position: 'absolute',
+            top: '10px',
+            right: '10px',
+            padding: '5px 10px',
+            backgroundColor: '#8884d8',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            zIndex: 10
+          }}
+          aria-label="Reset zoom"
+        >
+          Reset Zoom
+        </button>
+      )}
+      <BarChart
+        data={displayData}
+        margin={{ top: 5, right: 30, left: 20, bottom: enableBrush ? (brushHeight || 40) + 10 : 5 }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+      >
+        {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#333" />}
+        <XAxis
+          dataKey="label"
+          stroke="#888"
+          style={{ fontSize: '12px' }}
+          tick={{ fill: '#888' }}
+          label={xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -5, fill: '#888' } : undefined}
+        />
+        <YAxis
+          stroke="#888"
+          style={{ fontSize: '12px' }}
+          tick={{ fill: '#888' }}
+          label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft', fill: '#888' } : undefined}
+        />
+        <Tooltip content={<CustomTooltip />} />
+        {showLegend && <Legend />}
+        {zoomArea && zoomArea.startIndex !== undefined && zoomArea.endIndex !== undefined && (
+          <ReferenceArea
+            x1={displayData[Math.min(zoomArea.startIndex, zoomArea.endIndex)]?.label}
+            x2={displayData[Math.max(zoomArea.startIndex, zoomArea.endIndex)]?.label}
+            strokeOpacity={0.3}
+            fill="rgba(136, 132, 216, 0.2)"
+          />
+        )}
+        <Bar
+          dataKey="value"
+          fill={chartColors[0]}
+          onClick={handleClick}
+          name="Value"
+        />
+        {enableBrush && !isZoomed && data.length > 10 && (
+          <Brush
+            dataKey="label"
+            height={brushHeight || 40}
+            stroke="#8884d8"
+            fill="rgba(136, 132, 216, 0.1)"
+            travellerWidth={10}
+            onChange={handleBrushChange}
+          />
+        )}
+      </BarChart>
+    </div>
   )
 }
 
@@ -177,13 +282,16 @@ const PieChartView = ({
         cx="50%"
         cy="50%"
         labelLine={false}
-        label={({ label, percent }) => `${label}: ${(percent * 100).toFixed(0)}%`}
+        label={(props: any) => {
+          const { label, percent } = props
+          return `${label}: ${((percent || 0) * 100).toFixed(0)}%`
+        }}
         outerRadius={80}
         fill="#8884d8"
         dataKey="value"
         onClick={handleClick}
       >
-        {data.map((entry, index) => (
+        {data.map((_entry, index) => (
           <Cell
             key={`cell-${index}`}
             fill={chartColors[index % chartColors.length]}
@@ -209,10 +317,12 @@ export function FinancialStatementChart({
   className = '',
   xAxisLabel,
   yAxisLabel,
-  showDataLabels = false
+  showDataLabels: _showDataLabels,
+  enableZoom = true,
+  enableBrush = true,
+  brushHeight = 40
 }: FinancialStatementChartProps) {
   const [currentChartType, setCurrentChartType] = useState<ChartType>(chartType)
-  const [error, setError] = useState<string | null>(null)
 
   // Normalize data to FinancialDataPoint[] format
   const normalizedData = useMemo(() => {
@@ -276,23 +386,6 @@ export function FinancialStatementChart({
     )
   }
 
-  if (error) {
-    return (
-      <div
-        className={`financial-statement-chart-error ${className}`}
-        style={{
-          height: `${height}px`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#ff7300'
-        }}
-      >
-        <p>{error}</p>
-      </div>
-    )
-  }
-
   return (
     <div className={`financial-statement-chart ${className}`} style={{ width: '100%' }}>
       {title && (
@@ -350,6 +443,9 @@ export function FinancialStatementChart({
             showLegend={showLegend}
             xAxisLabel={xAxisLabel}
             yAxisLabel={yAxisLabel}
+            enableZoom={enableZoom}
+            enableBrush={enableBrush}
+            brushHeight={brushHeight}
           />
         ) : (
           <PieChartView

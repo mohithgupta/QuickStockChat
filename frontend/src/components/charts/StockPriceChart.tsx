@@ -3,12 +3,13 @@ import {
   ResponsiveContainer,
   LineChart as RechartsLineChart,
   Line,
-  CandlestickChart,
   XAxis,
   YAxis,
   Tooltip,
   Legend,
-  CartesianGrid
+  CartesianGrid,
+  Brush,
+  ReferenceArea
 } from 'recharts'
 
 // Types for stock price data
@@ -36,6 +37,9 @@ export interface StockPriceChartProps {
   downColor?: string
   onDataPointClick?: (data: StockPriceData) => void
   className?: string
+  enableZoom?: boolean
+  enableBrush?: boolean
+  brushHeight?: number
 }
 
 // Custom tooltip component
@@ -83,14 +87,24 @@ const LineChartView = ({
   lineColor,
   onDataPointClick,
   showGrid,
-  showLegend
+  showLegend,
+  enableZoom,
+  enableBrush,
+  brushHeight
 }: {
   data: StockPriceData[]
   lineColor?: string
   onDataPointClick?: (data: StockPriceData) => void
   showGrid?: boolean
   showLegend?: boolean
+  enableZoom?: boolean
+  enableBrush?: boolean
+  brushHeight?: number
 }) => {
+  const [zoomArea, setZoomArea] = useState<{ startIndex?: number; endIndex?: number } | null>(null)
+  const [filteredData, setFilteredData] = useState<StockPriceData[]>(data)
+  const [isZoomed, setIsZoomed] = useState(false)
+
   const handleClick = useCallback(
     (data: any) => {
       if (onDataPointClick && data) {
@@ -100,33 +114,123 @@ const LineChartView = ({
     [onDataPointClick]
   )
 
+  // Handle zoom selection
+  const handleMouseDown = useCallback((chartData: any) => {
+    if (enableZoom) {
+      setZoomArea({ startIndex: chartData.activeTooltipIndex })
+    }
+  }, [enableZoom])
+
+  const handleMouseMove = useCallback((chartData: any) => {
+    if (enableZoom && zoomArea && zoomArea.startIndex !== undefined) {
+      setZoomArea({ ...zoomArea, endIndex: chartData.activeTooltipIndex })
+    }
+  }, [enableZoom, zoomArea])
+
+  const handleMouseUp = useCallback(() => {
+    if (enableZoom && zoomArea && zoomArea.startIndex !== undefined && zoomArea.endIndex !== undefined) {
+      const start = Math.min(zoomArea.startIndex, zoomArea.endIndex)
+      const end = Math.max(zoomArea.startIndex, zoomArea.endIndex)
+      if (end - start > 1) {
+        setFilteredData(data.slice(start, end + 1))
+        setIsZoomed(true)
+      }
+    }
+    setZoomArea(null)
+  }, [enableZoom, zoomArea, data])
+
+  // Reset zoom
+  const handleResetZoom = useCallback(() => {
+    setFilteredData(data)
+    setIsZoomed(false)
+  }, [data])
+
+  // Handle brush change
+  const handleBrushChange = useCallback((brushData: any) => {
+    if (enableBrush && brushData && brushData.startIndex !== undefined && brushData.endIndex !== undefined) {
+      const start = Math.min(brushData.startIndex, brushData.endIndex)
+      const end = Math.max(brushData.startIndex, brushData.endIndex)
+      setFilteredData(data.slice(start, end + 1))
+      setIsZoomed(true)
+    }
+  }, [enableBrush, data])
+
+  const displayData = isZoomed ? filteredData : data
+
   return (
-    <RechartsLineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-      {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#333" />}
-      <XAxis
-        dataKey="date"
-        stroke="#888"
-        style={{ fontSize: '12px' }}
-        tick={{ fill: '#888' }}
-      />
-      <YAxis
-        stroke="#888"
-        style={{ fontSize: '12px' }}
-        tick={{ fill: '#888' }}
-        domain={['auto', 'auto']}
-      />
-      <Tooltip content={<CustomTooltip />} />
-      {showLegend && <Legend />}
-      <Line
-        type="monotone"
-        dataKey="close"
-        stroke={lineColor || '#8884d8'}
-        strokeWidth={2}
-        dot={{ fill: lineColor || '#8884d8', r: 4 }}
-        activeDot={{ r: 6, onClick: handleClick }}
-        name="Price"
-      />
-    </RechartsLineChart>
+    <div style={{ position: 'relative' }}>
+      {isZoomed && (
+        <button
+          onClick={handleResetZoom}
+          style={{
+            position: 'absolute',
+            top: '10px',
+            right: '10px',
+            padding: '5px 10px',
+            backgroundColor: '#8884d8',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            zIndex: 10
+          }}
+          aria-label="Reset zoom"
+        >
+          Reset Zoom
+        </button>
+      )}
+      <RechartsLineChart
+        data={displayData}
+        margin={{ top: 5, right: 30, left: 20, bottom: enableBrush ? (brushHeight || 40) + 10 : 5 }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+      >
+        {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#333" />}
+        <XAxis
+          dataKey="date"
+          stroke="#888"
+          style={{ fontSize: '12px' }}
+          tick={{ fill: '#888' }}
+        />
+        <YAxis
+          stroke="#888"
+          style={{ fontSize: '12px' }}
+          tick={{ fill: '#888' }}
+          domain={['auto', 'auto']}
+        />
+        <Tooltip content={<CustomTooltip />} />
+        {showLegend && <Legend />}
+        {zoomArea && zoomArea.startIndex !== undefined && zoomArea.endIndex !== undefined && (
+          <ReferenceArea
+            x1={displayData[Math.min(zoomArea.startIndex, zoomArea.endIndex)]?.date}
+            x2={displayData[Math.max(zoomArea.startIndex, zoomArea.endIndex)]?.date}
+            strokeOpacity={0.3}
+            fill="rgba(136, 132, 216, 0.2)"
+          />
+        )}
+        <Line
+          type="monotone"
+          dataKey="close"
+          stroke={lineColor || '#8884d8'}
+          strokeWidth={2}
+          dot={displayData.length < 50 ? { fill: lineColor || '#8884d8', r: 4 } : false}
+          activeDot={{ r: 6, onClick: handleClick }}
+          name="Price"
+        />
+        {enableBrush && !isZoomed && (
+          <Brush
+            dataKey="date"
+            height={brushHeight || 40}
+            stroke="#8884d8"
+            fill="rgba(136, 132, 216, 0.1)"
+            travellerWidth={10}
+            onChange={handleBrushChange}
+          />
+        )}
+      </RechartsLineChart>
+    </div>
   )
 }
 
@@ -137,7 +241,10 @@ const CandlestickChartView = ({
   downColor,
   onDataPointClick,
   showGrid,
-  showLegend
+  showLegend,
+  enableZoom,
+  enableBrush,
+  brushHeight
 }: {
   data: StockPriceData[]
   upColor?: string
@@ -145,6 +252,9 @@ const CandlestickChartView = ({
   onDataPointClick?: (data: StockPriceData) => void
   showGrid?: boolean
   showLegend?: boolean
+  enableZoom?: boolean
+  enableBrush?: boolean
+  brushHeight?: number
 }) => {
   const handleClick = useCallback(
     (dataPoint: StockPriceData) => {
@@ -155,9 +265,14 @@ const CandlestickChartView = ({
     [onDataPointClick]
   )
 
-  // Transform data for recharts CandlestickChart
+  const [zoomArea, setZoomArea] = useState<{ startIndex?: number; endIndex?: number } | null>(null)
+  const [filteredData, setFilteredData] = useState<StockPriceData[]>(data)
+  const [isZoomed, setIsZoomed] = useState(false)
+
+  // Transform data for candlestick representation using line for close prices
   const candlestickData = useMemo(() => {
-    return data.map((item) => ({
+    const currentData = isZoomed ? filteredData : data
+    return currentData.map((item) => ({
       ...item,
       x: item.date,
       open: item.open,
@@ -165,31 +280,126 @@ const CandlestickChartView = ({
       high: item.high,
       low: item.low
     }))
+  }, [data, filteredData, isZoomed])
+
+  // Handle zoom selection
+  const handleMouseDown = useCallback((chartData: any) => {
+    if (enableZoom) {
+      setZoomArea({ startIndex: chartData.activeTooltipIndex })
+    }
+  }, [enableZoom])
+
+  const handleMouseMove = useCallback((chartData: any) => {
+    if (enableZoom && zoomArea && zoomArea.startIndex !== undefined) {
+      setZoomArea({ ...zoomArea, endIndex: chartData.activeTooltipIndex })
+    }
+  }, [enableZoom, zoomArea])
+
+  const handleMouseUp = useCallback(() => {
+    if (enableZoom && zoomArea && zoomArea.startIndex !== undefined && zoomArea.endIndex !== undefined) {
+      const start = Math.min(zoomArea.startIndex, zoomArea.endIndex)
+      const end = Math.max(zoomArea.startIndex, zoomArea.endIndex)
+      if (end - start > 1) {
+        const newDataToFilter = isZoomed ? filteredData : data
+        setFilteredData(newDataToFilter.slice(start, end + 1))
+        setIsZoomed(true)
+      }
+    }
+    setZoomArea(null)
+  }, [enableZoom, zoomArea, data, filteredData, isZoomed])
+
+  // Reset zoom
+  const handleResetZoom = useCallback(() => {
+    setFilteredData(data)
+    setIsZoomed(false)
   }, [data])
 
+  // Handle brush change
+  const handleBrushChange = useCallback((brushData: any) => {
+    if (enableBrush && brushData && brushData.startIndex !== undefined && brushData.endIndex !== undefined) {
+      const start = Math.min(brushData.startIndex, brushData.endIndex)
+      const end = Math.max(brushData.startIndex, brushData.endIndex)
+      setFilteredData(data.slice(start, end + 1))
+      setIsZoomed(true)
+    }
+  }, [enableBrush, data])
+
+  const displayData = isZoomed ? filteredData : data
+
   return (
-    <RechartsLineChart data={candlestickData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-      {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#333" />}
-      <XAxis
-        dataKey="date"
-        stroke="#888"
-        style={{ fontSize: '12px' }}
-        tick={{ fill: '#888' }}
-      />
-      <YAxis
-        stroke="#888"
-        style={{ fontSize: '12px' }}
-        tick={{ fill: '#888' }}
-        domain={['auto', 'auto']}
-      />
-      <Tooltip content={<CustomTooltip />} />
-      {showLegend && <Legend />}
-      <CandlestickChart
-        upColor={upColor || '#52ca9e'}
-        downColor={downColor || '#ff7300'}
-        onClick={handleClick}
-      />
-    </RechartsLineChart>
+    <div style={{ position: 'relative' }}>
+      {isZoomed && (
+        <button
+          onClick={handleResetZoom}
+          style={{
+            position: 'absolute',
+            top: '10px',
+            right: '10px',
+            padding: '5px 10px',
+            backgroundColor: '#8884d8',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            zIndex: 10
+          }}
+          aria-label="Reset zoom"
+        >
+          Reset Zoom
+        </button>
+      )}
+      <RechartsLineChart
+        data={candlestickData}
+        margin={{ top: 5, right: 30, left: 20, bottom: enableBrush ? (brushHeight || 40) + 10 : 5 }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+      >
+        {showGrid && <CartesianGrid strokeDasharray="3 3" stroke="#333" />}
+        <XAxis
+          dataKey="date"
+          stroke="#888"
+          style={{ fontSize: '12px' }}
+          tick={{ fill: '#888' }}
+        />
+        <YAxis
+          stroke="#888"
+          style={{ fontSize: '12px' }}
+          tick={{ fill: '#888' }}
+          domain={['auto', 'auto']}
+        />
+        <Tooltip content={<CustomTooltip />} />
+        {showLegend && <Legend />}
+        {zoomArea && zoomArea.startIndex !== undefined && zoomArea.endIndex !== undefined && (
+          <ReferenceArea
+            x1={displayData[Math.min(zoomArea.startIndex, zoomArea.endIndex)]?.date}
+            x2={displayData[Math.max(zoomArea.startIndex, zoomArea.endIndex)]?.date}
+            strokeOpacity={0.3}
+            fill="rgba(136, 132, 216, 0.2)"
+          />
+        )}
+        <Line
+          type="monotone"
+          dataKey="close"
+          stroke={upColor || '#52ca9e'}
+          strokeWidth={2}
+          dot={false}
+          activeDot={{ r: 6, onClick: handleClick }}
+          name="Close Price"
+        />
+        {enableBrush && !isZoomed && (
+          <Brush
+            dataKey="date"
+            height={brushHeight || 40}
+            stroke="#8884d8"
+            fill="rgba(136, 132, 216, 0.1)"
+            travellerWidth={10}
+            onChange={handleBrushChange}
+          />
+        )}
+      </RechartsLineChart>
+    </div>
   )
 }
 
@@ -199,17 +409,19 @@ export function StockPriceChart({
   chartType = 'line',
   title,
   height = 400,
-  showVolume = false,
+  showVolume: _showVolume,
   showLegend = true,
   showGrid = true,
   lineColor,
   upColor,
   downColor,
   onDataPointClick,
-  className = ''
+  className = '',
+  enableZoom = true,
+  enableBrush = true,
+  brushHeight = 40
 }: StockPriceChartProps) {
   const [currentChartType, setCurrentChartType] = useState<ChartType>(chartType)
-  const [error, setError] = useState<string | null>(null)
 
   // Validate data
   const isValidData = useMemo(() => {
@@ -253,23 +465,6 @@ export function StockPriceChart({
             Please provide valid stock price data with date and close prices
           </p>
         </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div
-        className={`stock-price-chart-error ${className}`}
-        style={{
-          height: `${height}px`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#ff7300'
-        }}
-      >
-        <p>{error}</p>
       </div>
     )
   }
@@ -329,6 +524,9 @@ export function StockPriceChart({
             onDataPointClick={onDataPointClick}
             showGrid={showGrid}
             showLegend={showLegend}
+            enableZoom={enableZoom}
+            enableBrush={enableBrush}
+            brushHeight={brushHeight}
           />
         ) : (
           <CandlestickChartView
@@ -338,6 +536,9 @@ export function StockPriceChart({
             onDataPointClick={onDataPointClick}
             showGrid={showGrid}
             showLegend={showLegend}
+            enableZoom={enableZoom}
+            enableBrush={enableBrush}
+            brushHeight={brushHeight}
           />
         )}
       </ResponsiveContainer>
