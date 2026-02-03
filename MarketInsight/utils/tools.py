@@ -3,6 +3,8 @@ import requests
 import yfinance as yf
 from langchain.tools import tool
 from MarketInsight.utils.logger import get_logger
+from MarketInsight.utils.exceptions import TickerValidationError, ValidationError
+from MarketInsight.utils.validators import validate_ticker, validate_date_string
 from utils.api_throttler import get_throttler
 
 logger = get_logger("Tools")
@@ -16,8 +18,12 @@ throttler = get_throttler()
 def get_stock_price(ticker: str):
     logger.info(f"Retrieving Stock Price of {ticker}")
 
-    if not ticker or not isinstance(ticker, str):
-        return "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+    # Validate ticker using new validator
+    try:
+        ticker = validate_ticker(ticker)
+    except TickerValidationError as e:
+        logger.error(f"Ticker validation failed: {e}")
+        return f"Error: {e.message}"
 
     start_time = time.time()
 
@@ -28,11 +34,15 @@ def get_stock_price(ticker: str):
         end_time = time.time()
 
         if stock_price is None:
-            return "No price data available for {ticker}"
+            logger.warning(f"No price data available for {ticker}")
+            return f"No price data available for {ticker}"
 
         logger.info(f"Retrieved Stock Price of {ticker} in {end_time - start_time:.3f} seconds")
         return stock_price
 
+    except KeyError as e:
+        logger.error(f"Stock price data not found for {ticker}: {str(e)}")
+        return f"Error: Stock price data not available for {ticker}. The ticker may be invalid or delisted."
     except Exception as e:
         logger.error(f"Failed to retrieve stock price of {ticker}: {str(e)}")
         return "Error: Failed to retrieve stock price. Please try again later."
@@ -43,10 +53,16 @@ def get_stock_price(ticker: str):
 # --------------------------------------------------------------------------------
 @tool('get_historical_data', description="A function that returns the historical data of a given ticker in the given start and end date")
 def get_historical_data(ticker: str, start_date: str, end_date: str):
-    logger.info(f"Retrieving Historical Data of {ticker}")
+    logger.info(f"Retrieving Historical Data of {ticker} from {start_date} to {end_date}")
 
-    if not ticker or not isinstance(ticker, str):
-        return "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+    # Validate inputs using new validators
+    try:
+        ticker = validate_ticker(ticker)
+        start_date = validate_date_string(start_date)
+        end_date = validate_date_string(end_date)
+    except (TickerValidationError, ValidationError) as e:
+        logger.error(f"Input validation failed: {e}")
+        return f"Error: {e.message}"
 
     try:
         start_time = time.time()
@@ -54,13 +70,17 @@ def get_historical_data(ticker: str, start_date: str, end_date: str):
             stock = yf.Ticker(ticker)
             historical_data = stock.history(start=start_date, end=end_date).to_dict()
 
-        if historical_data is None:
-            return "No historical data available for {ticker}"
+        if not historical_data:
+            logger.warning(f"No historical data available for {ticker}")
+            return f"No historical data available for {ticker}"
 
         end_time = time.time()
         logger.info(f"Retrieved Historical Data of {ticker} in {end_time - start_time:.3f} seconds")
         return historical_data
 
+    except ValueError as e:
+        logger.error(f"Invalid date parameters for {ticker}: {str(e)}")
+        return f"Error: Invalid date parameters. {str(e)}"
     except Exception as e:
         logger.error(f"Failed to retrieve historical data of {ticker}: {str(e)}")
         return "Error: Failed to retrieve historical data. Please try again later."
@@ -73,8 +93,12 @@ def get_historical_data(ticker: str, start_date: str, end_date: str):
 def get_stock_news(ticker: str):
     logger.info(f"Retrieving News of {ticker}")
 
-    if not ticker or not isinstance(ticker, str):
-        return "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+    # Validate ticker using new validator
+    try:
+        ticker = validate_ticker(ticker)
+    except TickerValidationError as e:
+        logger.error(f"Ticker validation failed: {e}")
+        return f"Error: {e.message}"
 
     try:
         start_time = time.time()
@@ -83,7 +107,8 @@ def get_stock_news(ticker: str):
             news = stock.news
 
         if news is None:
-            return "No news available for {ticker}"
+            logger.warning(f"No news available for {ticker}")
+            return f"No news available for {ticker}"
 
         end_time = time.time()
         logger.info(f"Retrieved News of {ticker} in {end_time - start_time:.3f} seconds")
@@ -101,8 +126,12 @@ def get_stock_news(ticker: str):
 def get_balance_sheet(ticker: str):
     logger.info(f"Retrieving Balance Sheet of {ticker}")
 
-    if not ticker or not isinstance(ticker, str):
-        return "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+    # Validate ticker using new validator
+    try:
+        ticker = validate_ticker(ticker)
+    except TickerValidationError as e:
+        logger.error(f"Ticker validation failed: {e}")
+        return f"Error: {e.message}"
 
     try:
         start_time = time.time()
@@ -110,8 +139,9 @@ def get_balance_sheet(ticker: str):
             stock = yf.Ticker(ticker)
             balance_sheet = stock.balance_sheet.to_dict()
 
-        if balance_sheet is None:
-            return "No balance sheet available for {ticker}"
+        if not balance_sheet:
+            logger.warning(f"No balance sheet available for {ticker}")
+            return f"No balance sheet available for {ticker}"
 
         end_time = time.time()
         logger.info(f"Retrieved Balance Sheet of {ticker} in {end_time - start_time:.3f} seconds")
