@@ -1,0 +1,126 @@
+name: Backend Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'MarketInsight/**'
+      - 'config/**'
+      - 'tests/**'
+      - 'requirements.txt'
+      - 'pytest.ini'
+      - 'main.py'
+      - '.github/workflows/test-backend.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'MarketInsight/**'
+      - 'config/**'
+      - 'tests/**'
+      - 'requirements.txt'
+      - 'pytest.ini'
+      - 'main.py'
+      - '.github/workflows/test-backend.yml'
+
+# Cancel in-progress runs for the same branch and workflow
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Backend Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run unit tests
+        id: unit-tests
+        run: |
+          START_TIME=$(date +%s)
+          pytest tests/unit/ -v \
+            --cov=MarketInsight \
+            --cov=config \
+            --cov=main \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-report=html
+          END_TIME=$(date +%s)
+          echo "duration=$((END_TIME - START_TIME))" >> $GITHUB_OUTPUT
+
+      - name: Run integration tests
+        id: integration-tests
+        run: |
+          START_TIME=$(date +%s)
+          pytest tests/integration/ -v \
+            --cov=MarketInsight \
+            --cov=config \
+            --cov=main \
+            --cov-report=term-missing \
+            --cov-append \
+            --cov-report=xml \
+            --cov-report=html
+          END_TIME=$(date +%s)
+          echo "duration=$((END_TIME - START_TIME))" >> $GITHUB_OUTPUT
+
+      - name: Check minimum coverage
+        run: |
+          coverage report --fail-under=80
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: backend
+          name: backend-coverage
+          fail_ci_if_error: false
+
+      - name: Upload coverage HTML as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: htmlcov/
+          retention-days: 7
+
+      - name: Calculate total execution time
+        id: total-time
+        run: |
+          UNIT_TIME=${{ steps.unit-tests.outputs.duration }}
+          INTEGRATION_TIME=${{ steps.integration-tests.outputs.duration }}
+          TOTAL_TIME=$((UNIT_TIME + INTEGRATION_TIME))
+          echo "duration=$TOTAL_TIME" >> $GITHUB_OUTPUT
+          echo "Unit tests: ${UNIT_TIME}s"
+          echo "Integration tests: ${INTEGRATION_TIME}s"
+          echo "Total: ${TOTAL_TIME}s"
+
+      - name: Test execution time summary
+        if: always()
+        run: |
+          echo "### Test Execution Summary :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Unit Tests**: ${{ steps.unit-tests.outputs.duration }}s" >> $GITHUB_STEP_SUMMARY
+          echo "- **Integration Tests**: ${{ steps.integration-tests.outputs.duration }}s" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total Time**: ${{ steps.total-time.outputs.duration }}s" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail if timeout exceeded
+        if: steps.total-time.outputs.duration > 300
+        run: |
+          echo "::error::Tests exceeded 5-minute (300s) timeout requirement. Actual: ${{ steps.total-time.outputs.duration }}s"
+          exit 1
