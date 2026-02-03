@@ -77,3 +77,23 @@ class ValidationErrorResponse(BaseModel):
     error_type: str = "ValidationError"  # Default error type for validation errors
     field: Optional[str] = None  # The field that failed validation
     details: Optional[Dict[str, Any]] = None  # Additional validation context
+
+
+class ChartDataPoint(BaseModel):
+    """Model for a single data point in a chart."""
+    date: str  # ISO format date string (e.g., "2024-01-15")
+    value: float  # The primary value (e.g., stock price, revenue)
+    volume: Optional[float] = None  # Trading volume (for stock charts)
+    open: Optional[float] = None  # Opening price (for candlestick charts)
+    high: Optional[float] = None  # High price (for candlestick charts)
+    low: Optional[float] = None  # Low price (for candlestick charts)
+    close: Optional[float] = None  # Closing price (for candlestick charts)
+
+
+class ChartResponse(BaseModel):
+    """Model for a complete chart response with metadata and data points."""
+    ticker: str  # Stock ticker symbol
+    chart_type: str  # Type of chart (e.g., "line", "candlestick", "bar", "pie")
+    period: str  # Time period (e.g., "1mo", "3mo", "1y", "max")
+    data: List[ChartDataPoint]  # List of data points
+    metadata: Optional[Dict[str, Any]] = None  # Additional chart metadata
