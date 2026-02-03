@@ -48,11 +48,12 @@ class TestGetStockPrice:
         mock_stock.info = {'regularMarketPrice': None}
         mock_ticker.return_value = mock_stock
 
-        # Execute
-        result = get_stock_price("AAPL")
+        # Execute & Verify - should raise ExternalServiceError
+        from MarketInsight.utils.exceptions import ExternalServiceError
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_stock_price("AAPL")
 
-        # Verify
-        assert result == "No price data available for {ticker}"
+        assert "No price data available" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.yf.Ticker')
     def test_get_stock_price_missing_key(self, mock_ticker):
@@ -62,29 +63,36 @@ class TestGetStockPrice:
         mock_stock.info = {}  # Missing regularMarketPrice
         mock_ticker.return_value = mock_stock
 
-        # Execute
-        result = get_stock_price("AAPL")
+        # Execute & Verify - should raise ExternalServiceError
+        from MarketInsight.utils.exceptions import ExternalServiceError
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_stock_price("AAPL")
 
-        # Verify - should raise KeyError and return error message
-        assert result == "Error: Failed to retrieve stock price. Please try again later."
+        assert "Failed to retrieve stock price" in str(exc_info.value)
 
     def test_get_stock_price_empty_string(self):
         """Test get_stock_price handles empty string"""
-        result = get_stock_price("")
+        from MarketInsight.utils.exceptions import TickerValidationError
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_stock_price("")
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "Ticker symbol is required" in str(exc_info.value)
 
     def test_get_stock_price_none_ticker(self):
         """Test get_stock_price handles None ticker"""
-        result = get_stock_price(None)
+        from MarketInsight.utils.exceptions import TickerValidationError
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_stock_price(None)
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "Ticker symbol is required" in str(exc_info.value)
 
     def test_get_stock_price_non_string_ticker(self):
         """Test get_stock_price handles non-string ticker"""
-        result = get_stock_price(123)
+        from MarketInsight.utils.exceptions import TickerValidationError
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_stock_price(123)
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "must be a string" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.yf.Ticker')
     def test_get_stock_price_exception_handling(self, mock_ticker):
@@ -92,11 +100,12 @@ class TestGetStockPrice:
         # Setup mock to raise exception
         mock_ticker.side_effect = Exception("Network error")
 
-        # Execute
-        result = get_stock_price("AAPL")
+        # Execute & Verify - should raise ExternalServiceError
+        from MarketInsight.utils.exceptions import ExternalServiceError
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_stock_price("AAPL")
 
-        # Verify
-        assert result == "Error: Failed to retrieve stock price. Please try again later."
+        assert "Failed to retrieve stock price" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.yf.Ticker')
     def test_get_stock_price_different_tickers(self, mock_ticker):
@@ -148,22 +157,28 @@ class TestGetHistoricalData:
     @patch('MarketInsight.utils.tools.yf.Ticker')
     def test_get_historical_data_empty_string_ticker(self, mock_ticker):
         """Test get_historical_data handles empty ticker string"""
-        result = get_historical_data("", "2024-01-01", "2024-01-05")
+        from MarketInsight.utils.exceptions import TickerValidationError
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_historical_data("", "2024-01-01", "2024-01-05")
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "Ticker symbol is required" in str(exc_info.value)
         mock_ticker.assert_not_called()
 
     def test_get_historical_data_none_ticker(self):
         """Test get_historical_data handles None ticker"""
-        result = get_historical_data(None, "2024-01-01", "2024-01-05")
+        from MarketInsight.utils.exceptions import TickerValidationError
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_historical_data(None, "2024-01-01", "2024-01-05")
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "Ticker symbol is required" in str(exc_info.value)
 
     def test_get_historical_data_non_string_ticker(self):
         """Test get_historical_data handles non-string ticker"""
-        result = get_historical_data(123, "2024-01-01", "2024-01-05")
+        from MarketInsight.utils.exceptions import TickerValidationError
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_historical_data(123, "2024-01-01", "2024-01-05")
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "must be a string" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.yf.Ticker')
     def test_get_historical_data_exception_handling(self, mock_ticker):
@@ -171,11 +186,12 @@ class TestGetHistoricalData:
         # Setup mock to raise exception
         mock_ticker.side_effect = Exception("Network error")
 
-        # Execute
-        result = get_historical_data("AAPL", "2024-01-01", "2024-01-05")
+        # Execute & Verify - should raise ExternalServiceError
+        from MarketInsight.utils.exceptions import ExternalServiceError
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_historical_data("AAPL", "2024-01-01", "2024-01-05")
 
-        # Verify
-        assert result == "Error: Failed to retrieve historical data. Please try again later."
+        assert "Failed to retrieve historical data" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.yf.Ticker')
     def test_get_historical_data_none_result(self, mock_ticker):
@@ -185,11 +201,12 @@ class TestGetHistoricalData:
         mock_stock.history.return_value = None
         mock_ticker.return_value = mock_stock
 
-        # Execute
-        result = get_historical_data("AAPL", "2024-01-01", "2024-01-05")
+        # Execute & Verify - should raise ExternalServiceError
+        from MarketInsight.utils.exceptions import ExternalServiceError
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_historical_data("AAPL", "2024-01-01", "2024-01-05")
 
-        # Verify
-        assert result == "No historical data available for {ticker}"
+        assert "No historical data available" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.yf.Ticker')
     def test_get_historical_data_various_date_ranges(self, mock_ticker):
@@ -257,29 +274,36 @@ class TestGetStockNews:
         mock_stock.news = None
         mock_ticker.return_value = mock_stock
 
-        # Execute
-        result = get_stock_news("AAPL")
+        # Execute & Verify - should raise ExternalServiceError
+        from MarketInsight.utils.exceptions import ExternalServiceError
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_stock_news("AAPL")
 
-        # Verify
-        assert result == "No news available for {ticker}"
+        assert "No news available" in str(exc_info.value)
 
     def test_get_stock_news_empty_string_ticker(self):
         """Test get_stock_news handles empty ticker string"""
-        result = get_stock_news("")
+        from MarketInsight.utils.exceptions import TickerValidationError
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_stock_news("")
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "Ticker symbol is required" in str(exc_info.value)
 
     def test_get_stock_news_none_ticker(self):
         """Test get_stock_news handles None ticker"""
-        result = get_stock_news(None)
+        from MarketInsight.utils.exceptions import TickerValidationError
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_stock_news(None)
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "Ticker symbol is required" in str(exc_info.value)
 
     def test_get_stock_news_non_string_ticker(self):
         """Test get_stock_news handles non-string ticker"""
-        result = get_stock_news(123)
+        from MarketInsight.utils.exceptions import TickerValidationError
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_stock_news(123)
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "must be a string" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.yf.Ticker')
     def test_get_stock_news_exception_handling(self, mock_ticker):
@@ -287,11 +311,12 @@ class TestGetStockNews:
         # Setup mock to raise exception
         mock_ticker.side_effect = Exception("Network error")
 
-        # Execute
-        result = get_stock_news("AAPL")
+        # Execute & Verify - should raise ExternalServiceError
+        from MarketInsight.utils.exceptions import ExternalServiceError
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_stock_news("AAPL")
 
-        # Verify
-        assert result == "Error: Failed to retrieve news. Please try again later."
+        assert "Failed to retrieve news" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.yf.Ticker')
     def test_get_stock_news_multiple_tickers(self, mock_ticker):
@@ -360,29 +385,36 @@ class TestGetBalanceSheet:
         mock_stock.balance_sheet = None
         mock_ticker.return_value = mock_stock
 
-        # Execute
-        result = get_balance_sheet("AAPL")
+        # Execute & Verify - should raise ExternalServiceError
+        from MarketInsight.utils.exceptions import ExternalServiceError
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_balance_sheet("AAPL")
 
-        # Verify - should raise AttributeError and return error message
-        assert result == "Error: Failed to retrieve balance sheet. Please try again later."
+        assert "Failed to retrieve balance sheet" in str(exc_info.value)
 
     def test_get_balance_sheet_empty_string_ticker(self):
         """Test get_balance_sheet handles empty ticker string"""
-        result = get_balance_sheet("")
+        from MarketInsight.utils.exceptions import TickerValidationError
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_balance_sheet("")
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "Ticker symbol is required" in str(exc_info.value)
 
     def test_get_balance_sheet_none_ticker(self):
         """Test get_balance_sheet handles None ticker"""
-        result = get_balance_sheet(None)
+        from MarketInsight.utils.exceptions import TickerValidationError
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_balance_sheet(None)
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "Ticker symbol is required" in str(exc_info.value)
 
     def test_get_balance_sheet_non_string_ticker(self):
         """Test get_balance_sheet handles non-string ticker"""
-        result = get_balance_sheet(123)
+        from MarketInsight.utils.exceptions import TickerValidationError
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_balance_sheet(123)
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "must be a string" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.yf.Ticker')
     def test_get_balance_sheet_exception_handling(self, mock_ticker):
@@ -390,11 +422,12 @@ class TestGetBalanceSheet:
         # Setup mock to raise exception
         mock_ticker.side_effect = Exception("Network error")
 
-        # Execute
-        result = get_balance_sheet("AAPL")
+        # Execute & Verify - should raise ExternalServiceError
+        from MarketInsight.utils.exceptions import ExternalServiceError
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_balance_sheet("AAPL")
 
-        # Verify
-        assert result == "Error: Failed to retrieve balance sheet. Please try again later."
+        assert "Failed to retrieve balance sheet" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.yf.Ticker')
     def test_get_balance_sheet_multiple_tickers(self, mock_ticker):
@@ -440,13 +473,19 @@ class TestToolsIntegration:
     @patch('MarketInsight.utils.tools.yf.Ticker')
     def test_tools_with_invalid_tickers_dont_call_api(self, mock_ticker):
         """Test that invalid tickers don't make API calls"""
+        from MarketInsight.utils.exceptions import TickerValidationError
         invalid_inputs = ["", None, 123, [], {}]
 
         for invalid_input in invalid_inputs:
-            get_stock_price(invalid_input)
-            get_historical_data(invalid_input, "2024-01-01", "2024-01-05")
-            get_stock_news(invalid_input)
-            get_balance_sheet(invalid_input)
+            # Each call should raise TickerValidationError before calling API
+            with pytest.raises(TickerValidationError):
+                get_stock_price(invalid_input)
+            with pytest.raises(TickerValidationError):
+                get_historical_data(invalid_input, "2024-01-01", "2024-01-05")
+            with pytest.raises(TickerValidationError):
+                get_stock_news(invalid_input)
+            with pytest.raises(TickerValidationError):
+                get_balance_sheet(invalid_input)
 
         # Verify yf.Ticker was never called
         assert mock_ticker.call_count == 0

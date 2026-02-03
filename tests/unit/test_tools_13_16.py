@@ -13,6 +13,7 @@ from unittest.mock import Mock, patch, MagicMock
 import pandas as pd
 from datetime import datetime, timedelta
 import requests
+from MarketInsight.utils.exceptions import TickerValidationError, ExternalServiceError
 
 # Import the raw functions from conftest which unwraps the StructuredTool decorator
 from ..conftest import (
@@ -81,28 +82,32 @@ class TestGetInsiderTransactions:
         mock_ticker.return_value = mock_stock
 
         # Execute
-        result = get_insider_transactions("AAPL")
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_insider_transactions("AAPL")
 
-        # Verify - should raise AttributeError and return error message
-        assert result == "Error: Failed to retrieve insider transactions. Please try again later."
+        # Verify - should raise ExternalServiceError
+        assert "Failed to retrieve insider transactions" in str(exc_info.value)
 
     def test_get_insider_transactions_empty_string_ticker(self):
         """Test get_insider_transactions handles empty ticker string"""
-        result = get_insider_transactions("")
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_insider_transactions("")
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "Ticker symbol is required" in str(exc_info.value)
 
     def test_get_insider_transactions_none_ticker(self):
         """Test get_insider_transactions handles None ticker"""
-        result = get_insider_transactions(None)
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_insider_transactions(None)
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "Ticker symbol is required" in str(exc_info.value)
 
     def test_get_insider_transactions_non_string_ticker(self):
         """Test get_insider_transactions handles non-string ticker"""
-        result = get_insider_transactions(123)
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_insider_transactions(123)
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "must be a string" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.yf.Ticker')
     def test_get_insider_transactions_exception_handling(self, mock_ticker):
@@ -111,10 +116,11 @@ class TestGetInsiderTransactions:
         mock_ticker.side_effect = Exception("Network error")
 
         # Execute
-        result = get_insider_transactions("AAPL")
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_insider_transactions("AAPL")
 
         # Verify
-        assert result == "Error: Failed to retrieve insider transactions. Please try again later."
+        assert "Failed to retrieve insider transactions" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.yf.Ticker')
     def test_get_insider_transactions_multiple_tickers(self, mock_ticker):
@@ -255,28 +261,32 @@ class TestGetAnalystRecommendations:
         mock_ticker.return_value = mock_stock
 
         # Execute
-        result = get_analyst_recommendations("AAPL")
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_analyst_recommendations("AAPL")
 
-        # Verify - should raise AttributeError and return error message
-        assert result == "Error: Failed to retrieve analyst recommendations. Please try again later."
+        # Verify - should raise ExternalServiceError
+        assert "Failed to retrieve analyst recommendations" in str(exc_info.value)
 
     def test_get_analyst_recommendations_empty_string_ticker(self):
         """Test get_analyst_recommendations handles empty ticker string"""
-        result = get_analyst_recommendations("")
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_analyst_recommendations("")
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "Ticker symbol is required" in str(exc_info.value)
 
     def test_get_analyst_recommendations_none_ticker(self):
         """Test get_analyst_recommendations handles None ticker"""
-        result = get_analyst_recommendations(None)
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_analyst_recommendations(None)
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "Ticker symbol is required" in str(exc_info.value)
 
     def test_get_analyst_recommendations_non_string_ticker(self):
         """Test get_analyst_recommendations handles non-string ticker"""
-        result = get_analyst_recommendations(123)
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_analyst_recommendations(123)
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "must be a string" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.yf.Ticker')
     def test_get_analyst_recommendations_exception_handling(self, mock_ticker):
@@ -285,10 +295,11 @@ class TestGetAnalystRecommendations:
         mock_ticker.side_effect = Exception("Network error")
 
         # Execute
-        result = get_analyst_recommendations("AAPL")
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_analyst_recommendations("AAPL")
 
         # Verify
-        assert result == "Error: Failed to retrieve analyst recommendations. Please try again later."
+        assert "Failed to retrieve analyst recommendations" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.yf.Ticker')
     def test_get_analyst_recommendations_multiple_tickers(self, mock_ticker):
@@ -429,28 +440,32 @@ class TestGetAnalystRecommendationsSummary:
         mock_ticker.return_value = mock_stock
 
         # Execute
-        result = get_analyst_recommendations_summary("AAPL")
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_analyst_recommendations_summary("AAPL")
 
-        # Verify - should raise AttributeError and return error message
-        assert result == "Error: Failed to retrieve analyst recommendations summary. Please try again later."
+        # Verify - should raise ExternalServiceError
+        assert "Failed to retrieve analyst recommendations summary" in str(exc_info.value)
 
     def test_get_analyst_recommendations_summary_empty_string_ticker(self):
         """Test get_analyst_recommendations_summary handles empty ticker string"""
-        result = get_analyst_recommendations_summary("")
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_analyst_recommendations_summary("")
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "Ticker symbol is required" in str(exc_info.value)
 
     def test_get_analyst_recommendations_summary_none_ticker(self):
         """Test get_analyst_recommendations_summary handles None ticker"""
-        result = get_analyst_recommendations_summary(None)
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_analyst_recommendations_summary(None)
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "Ticker symbol is required" in str(exc_info.value)
 
     def test_get_analyst_recommendations_summary_non_string_ticker(self):
         """Test get_analyst_recommendations_summary handles non-string ticker"""
-        result = get_analyst_recommendations_summary(123)
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_analyst_recommendations_summary(123)
 
-        assert result == "Error: Invalid ticker provided. Please provide a valid ticker symbol."
+        assert "must be a string" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.yf.Ticker')
     def test_get_analyst_recommendations_summary_exception_handling(self, mock_ticker):
@@ -459,10 +474,11 @@ class TestGetAnalystRecommendationsSummary:
         mock_ticker.side_effect = Exception("Network error")
 
         # Execute
-        result = get_analyst_recommendations_summary("AAPL")
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_analyst_recommendations_summary("AAPL")
 
         # Verify
-        assert result == "Error: Failed to retrieve analyst recommendations summary. Please try again later."
+        assert "Failed to retrieve analyst recommendations summary" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.yf.Ticker')
     def test_get_analyst_recommendations_summary_multiple_tickers(self, mock_ticker):
@@ -611,10 +627,11 @@ class TestGetTicker:
         mock_get.return_value = mock_response
 
         # Execute
-        result = get_ticker("Unknown Company")
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_ticker("Unknown Company")
 
-        # Verify - should raise IndexError and return error message
-        assert result == "Error: Failed to retrieve ticker. Please try again later."
+        # Verify - should raise ExternalServiceError
+        assert "Failed to retrieve ticker" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.requests.get')
     def test_get_ticker_non_200_status(self, mock_get):
@@ -625,10 +642,11 @@ class TestGetTicker:
         mock_get.return_value = mock_response
 
         # Execute
-        result = get_ticker("Unknown Company")
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_ticker("Unknown Company")
 
         # Verify
-        assert result == "Error: Failed to retrieve ticker. Please try again later."
+        assert "Failed to retrieve ticker" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.requests.get')
     def test_get_ticker_exception_handling(self, mock_get):
@@ -637,28 +655,32 @@ class TestGetTicker:
         mock_get.side_effect = Exception("Network error")
 
         # Execute
-        result = get_ticker("Apple")
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_ticker("Apple")
 
         # Verify
-        assert result == "Error: Failed to retrieve ticker. Please try again later."
+        assert "Failed to retrieve ticker" in str(exc_info.value)
 
     def test_get_ticker_empty_string_company_name(self):
         """Test get_ticker handles empty company name string"""
-        result = get_ticker("")
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_ticker("")
 
-        assert result == "Error: Invalid company name provided. Please provide a valid company name."
+        assert "Company name is required" in str(exc_info.value)
 
     def test_get_ticker_none_company_name(self):
         """Test get_ticker handles None company name"""
-        result = get_ticker(None)
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_ticker(None)
 
-        assert result == "Error: Invalid company name provided. Please provide a valid company name."
+        assert "Company name is required" in str(exc_info.value)
 
     def test_get_ticker_non_string_company_name(self):
         """Test get_ticker handles non-string company name"""
-        result = get_ticker(123)
+        with pytest.raises(TickerValidationError) as exc_info:
+            get_ticker(123)
 
-        assert result == "Error: Invalid company name provided. Please provide a valid company name."
+        assert "must be a string" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.requests.get')
     def test_get_ticker_request_timeout(self, mock_get):
@@ -667,10 +689,11 @@ class TestGetTicker:
         mock_get.side_effect = requests.exceptions.Timeout("Request timed out")
 
         # Execute
-        result = get_ticker("Apple")
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_ticker("Apple")
 
         # Verify
-        assert result == "Error: Failed to retrieve ticker. Please try again later."
+        assert "Failed to retrieve ticker" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.requests.get')
     def test_get_ticker_network_error(self, mock_get):
@@ -679,10 +702,11 @@ class TestGetTicker:
         mock_get.side_effect = requests.exceptions.ConnectionError("Network error")
 
         # Execute
-        result = get_ticker("Apple")
+        with pytest.raises(ExternalServiceError) as exc_info:
+            get_ticker("Apple")
 
         # Verify
-        assert result == "Error: Failed to retrieve ticker. Please try again later."
+        assert "Failed to retrieve ticker" in str(exc_info.value)
 
     @patch('MarketInsight.utils.tools.requests.get')
     def test_get_ticker_case_insensitive(self, mock_get):
