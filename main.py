@@ -1,35 +1,27 @@
 import os
 import uvicorn
-from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi import FastAPI, Request, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
 from langfuse import Langfuse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import SystemMessage, HumanMessage
-from config.config import RequestObject
+from config.config import RequestObject, ValidationErrorResponse
 from MarketInsight.components.agent import agent
 from MarketInsight.utils.logger import get_logger
+from MarketInsight.utils.validators import sanitize_input
+from MarketInsight.utils.exceptions import ValidationError, MarketInsightError
 from middleware.rate_limiter import limiter
 from middleware.security_headers import SecurityHeadersMiddleware
 from middleware.auth import get_api_key
-from slowapi.errors import RateLimitExceeded
+from middleware.error_handlers import register_exception_handlers
 
 logger = get_logger(__name__)
 app = FastAPI()
 app.state.limiter = limiter
 
-# Add rate limit error handler
-@app.exception_handler(RateLimitExceeded)
-async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
-    """Handle rate limit exceeded errors with a clear message"""
-    return JSONResponse(
-        status_code=429,
-        content={
-            "detail": "Rate limit exceeded. Please try again later.",
-            "error": "rate_limit_exceeded"
-        },
-        headers={"Retry-After": "60"}
-    )
+# Register global exception handlers
+register_exception_handlers(app)
 
 # Configure CORS with environment-based whitelist
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
@@ -60,6 +52,26 @@ async def health_check():
 @app.post("/api/chat")
 @limiter.limit("100/minute")
 async def chat(request: Request, body: RequestObject, api_key: str = Depends(get_api_key)):
+    """
+    Chat endpoint for processing user queries with agent-based responses.
+
+    Validates the input prompt and returns streaming responses from the agent.
+    Raises ValidationError if the prompt content is empty or invalid.
+    """
+    # Validate prompt content
+    try:
+        sanitized_content = sanitize_input(body.prompt.content, max_length=5000)
+    except ValidationError as e:
+        logger.warning(f"Validation failed for chat request: {e.message}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "Prompt content is required and cannot be empty",
+                "error_type": "ValidationError",
+                "field": "prompt.content"
+            }
+        )
+
     config = {'configurable': {'thread_id': body.threadId}}
     async def generate():
         try:
@@ -67,7 +79,7 @@ async def chat(request: Request, body: RequestObject, api_key: str = Depends(get
             with langfuse.start_as_current_observation(
                 as_type="span",
                 name="chat-request",
-                input=body.prompt.content
+                input=sanitized_content
             ) as span:
                 # Set user_id as metadata
                 span.update(metadata={"user_id": body.threadId})
@@ -77,7 +89,7 @@ async def chat(request: Request, body: RequestObject, api_key: str = Depends(get
                     as_type="generation",
                     name="agent-stream",
                     model="agentic-workflow",
-                    input=body.prompt.content
+                    input=sanitized_content
                 ) as generation:
 
                     full_response = ""
@@ -85,7 +97,7 @@ async def chat(request: Request, body: RequestObject, api_key: str = Depends(get
                         {
                             'messages': [
                                 SystemMessage(content="You are a professional stock market analyst. For every user query, first determine whether a relevant tool can provide accurate or real-time data. If an appropriate tool exists, you must use it before answering. If the user does not provide an exact stock ticker, use the available tool to identify or resolve the correct ticker when required. Only when no suitable tool applies should you respond using your own reasoning and general market knowledge. Never guess, assume, or fabricate any financial data."),
-                                HumanMessage(content=body.prompt.content)
+                                HumanMessage(content=sanitized_content)
                             ]
                         },
                         stream_mode='messages',
