@@ -7,7 +7,7 @@ constants for external API rate limits.
 """
 
 import os
-from typing import List
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 
 
@@ -62,3 +62,18 @@ class RequestObject(BaseModel):
     prompt: PromptObject
     threadId: str
     responseId: str
+
+
+class ErrorResponse(BaseModel):
+    """Model for a standard error response with user-friendly message."""
+    error: str  # User-friendly error message
+    error_type: str  # Type of error (e.g., "TickerValidationError", "APIError")
+    details: Optional[Dict[str, Any]] = None  # Additional error context
+
+
+class ValidationErrorResponse(BaseModel):
+    """Model for a validation error response with field-level details."""
+    error: str  # User-friendly error message
+    error_type: str = "ValidationError"  # Default error type for validation errors
+    field: Optional[str] = None  # The field that failed validation
+    details: Optional[Dict[str, Any]] = None  # Additional validation context
