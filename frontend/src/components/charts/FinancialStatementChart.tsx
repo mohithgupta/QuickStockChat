@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import {
   ResponsiveContainer,
   BarChart,
@@ -304,6 +304,89 @@ const PieChartView = ({
   )
 }
 
+// Helper function to download CSV
+function downloadFinancialCSV(data: FinancialDataPoint[], filename: string): void {
+  if (!data || data.length === 0) {
+    return
+  }
+
+  const headers = ['Label', 'Value', 'Category', 'Date']
+  const rows = data.map((item) => [
+    item.label || '',
+    item.value?.toFixed(2) || '',
+    item.category || '',
+    item.date || ''
+  ])
+
+  const csvContent = [headers, ...rows]
+    .map((row) => row.join(','))
+    .join('\n')
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+
+  link.setAttribute('href', url)
+  link.setAttribute('download', `${filename}.csv`)
+  link.style.visibility = 'hidden'
+
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+
+  URL.revokeObjectURL(url)
+}
+
+// Helper function to download PNG
+function downloadFinancialPNG(element: HTMLElement | null, filename: string): void {
+  if (!element) {
+    return
+  }
+
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')
+
+  if (!ctx) {
+    return
+  }
+
+  const svgElement = element.querySelector('svg')
+
+  if (!svgElement) {
+    return
+  }
+
+  const svgData = new XMLSerializer().serializeToString(svgElement)
+  const svgSize = svgElement.getBoundingClientRect()
+
+  canvas.width = svgSize.width * 2
+  canvas.height = svgSize.height * 2
+  ctx.scale(2, 2)
+
+  const img = new Image()
+  const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })
+  const url = URL.createObjectURL(svgBlob)
+
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0)
+
+    const pngUrl = canvas.toDataURL('image/png')
+    const link = document.createElement('a')
+
+    link.download = `${filename}.png`
+    link.href = pngUrl
+    link.style.visibility = 'hidden'
+
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    URL.revokeObjectURL(url)
+  }
+
+  img.src = url
+}
+
 // Main FinancialStatementChart Component
 export function FinancialStatementChart({
   data,
@@ -323,6 +406,7 @@ export function FinancialStatementChart({
   brushHeight = 40
 }: FinancialStatementChartProps) {
   const [currentChartType, setCurrentChartType] = useState<ChartType>(chartType)
+  const chartRef = useRef<HTMLDivElement>(null)
 
   // Normalize data to FinancialDataPoint[] format
   const normalizedData = useMemo(() => {
@@ -360,6 +444,18 @@ export function FinancialStatementChart({
     setCurrentChartType(type)
   }, [])
 
+  // Handle CSV export
+  const handleExportCSV = useCallback(() => {
+    const filename = title ? title.replace(/\s+/g, '-').toLowerCase() : 'financial-chart'
+    downloadFinancialCSV(normalizedData, filename)
+  }, [normalizedData, title])
+
+  // Handle PNG export
+  const handleExportPNG = useCallback(() => {
+    const filename = title ? title.replace(/\s+/g, '-').toLowerCase() : 'financial-chart'
+    downloadFinancialPNG(chartRef.current, filename)
+  }, [title])
+
   // Handle errors
   if (!isValidData) {
     return (
@@ -387,23 +483,24 @@ export function FinancialStatementChart({
   }
 
   return (
-    <div className={`financial-statement-chart ${className}`} style={{ width: '100%' }}>
+    <div className={`financial-statement-chart ${className}`} style={{ width: '100%' }} ref={chartRef}>
       {title && (
         <div
           style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: '10px'
+            marginBottom: '10px',
+            flexWrap: 'wrap',
+            gap: '10px'
           }}
         >
           <h3 style={{ margin: 0, color: '#fff' }}>{title}</h3>
-          <div>
+          <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
             <button
               onClick={() => handleChartTypeChange('bar')}
               style={{
                 padding: '5px 10px',
-                marginRight: '5px',
                 backgroundColor: currentChartType === 'bar' ? '#8884d8' : '#333',
                 color: '#fff',
                 border: 'none',
@@ -429,6 +526,36 @@ export function FinancialStatementChart({
               aria-label="Switch to pie chart"
             >
               Pie
+            </button>
+            <button
+              onClick={handleExportPNG}
+              style={{
+                padding: '5px 10px',
+                backgroundColor: '#52ca9e',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px'
+              }}
+              aria-label="Export chart as PNG"
+            >
+              PNG
+            </button>
+            <button
+              onClick={handleExportCSV}
+              style={{
+                padding: '5px 10px',
+                backgroundColor: '#ff7300',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px'
+              }}
+              aria-label="Export data as CSV"
+            >
+              CSV
             </button>
           </div>
         </div>
