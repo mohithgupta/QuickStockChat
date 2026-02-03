@@ -17,7 +17,6 @@ from slowapi.errors import RateLimitExceeded
 logger = get_logger(__name__)
 app = FastAPI()
 app.state.limiter = limiter
-limiter.init_app(app)
 
 # Add rate limit error handler
 @app.exception_handler(RateLimitExceeded)
