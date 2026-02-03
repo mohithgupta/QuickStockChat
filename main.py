@@ -10,6 +10,7 @@ from config.config import RequestObject
 from MarketInsight.components.agent import agent
 from MarketInsight.utils.logger import get_logger
 from middleware.rate_limiter import limiter
+from middleware.security_headers import SecurityHeadersMiddleware
 from slowapi.errors import RateLimitExceeded
 
 logger = get_logger(__name__)
@@ -39,6 +40,9 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# Add security headers middleware
+app.add_middleware(SecurityHeadersMiddleware)
 
 langfuse = Langfuse(
     public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
