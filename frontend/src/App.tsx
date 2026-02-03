@@ -2,6 +2,9 @@ import './App.css'
 import { C1Chat, ThemeProvider } from '@thesysai/genui-sdk'
 import '@crayonai/react-ui/styles/index.css'
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { createRoot } from 'react-dom/client'
+import { StockPriceChart } from './components/charts/StockPriceChart'
+import { fetchStockPriceChart, transformStockPriceData } from './services/chartApi'
 
 // API configuration from environment variables
 const API_URL = import.meta.env.VITE_API_URL || 'https://marketinsight-skgl.onrender.com/api/chat'
@@ -92,12 +95,126 @@ function useMessageSender() {
   return sendMessage
 }
 
+// Stock ticker detection pattern
+const STOCK_TICKER_PATTERN = /\b([A-Z]{2,5})\b/g
+
+// Keywords that indicate stock price queries
+const STOCK_QUERY_KEYWORDS = [
+  'stock price',
+  'price',
+  'share price',
+  'current price',
+  'how much',
+  'what is',
+  'chart',
+  'graph',
+  'performance',
+  'trading',
+  'market',
+  'investment'
+]
+
+/**
+ * Detects if a message is asking about stock prices
+ * and extracts stock tickers from the message
+ */
+function detectStockQuery(message: string): string[] | null {
+  const lowerMessage = message.toLowerCase()
+
+  // Check if message contains stock-related keywords
+  const hasStockKeyword = STOCK_QUERY_KEYWORDS.some(keyword =>
+    lowerMessage.includes(keyword)
+  )
+
+  if (!hasStockKeyword) {
+    return null
+  }
+
+  // Extract potential stock tickers (2-5 uppercase letters)
+  const matches = message.match(STOCK_TICKER_PATTERN)
+  if (!matches || matches.length === 0) {
+    return null
+  }
+
+  // Filter out common non-ticker words
+  const excludedWords = ['THE', 'AND', 'FOR', 'ARE', 'BUT', 'NOT', 'YOU', 'ALL', 'CAN', 'HAD', 'HER', 'WAS', 'ONE', 'OUR', 'OUT', 'HAS', 'HAVE', 'BEEN', 'WITH', 'THIS', 'THAT', 'FROM', 'THEY', 'WOULD', 'THERE', 'THEIR', 'ABOUT', 'COULD', 'AFTER']
+  const tickers = matches.filter(match => !excludedWords.includes(match))
+
+  return tickers.length > 0 ? tickers : null
+}
+
+/**
+ * Creates a chart container and renders the StockPriceChart component
+ */
+function renderChartForTicker(
+  ticker: string,
+  messageElement: HTMLElement,
+  existingChartContainers: Map<string, HTMLElement>
+): void {
+  // Check if we already rendered a chart for this message
+  const messageId = messageElement.getAttribute('data-message-id') || `${Date.now()}-${Math.random()}`
+  messageElement.setAttribute('data-message-id', messageId)
+
+  if (existingChartContainers.has(messageId)) {
+    return
+  }
+
+  // Create a container for the chart
+  const chartContainer = document.createElement('div')
+  chartContainer.className = 'stock-chart-container'
+  chartContainer.style.cssText = `
+    margin-top: 16px;
+    margin-bottom: 16px;
+    padding: 16px;
+    background-color: #1a1a1a;
+    border-radius: 8px;
+    border: 1px solid #333;
+  `
+
+  // Insert the chart container after the message content
+  messageElement.appendChild(chartContainer)
+  existingChartContainers.set(messageId, chartContainer)
+
+  // Create a React root and render the chart
+  const root = createRoot(chartContainer)
+
+  // Fetch chart data and render
+  fetchStockPriceChart({ ticker, period: '1mo' })
+    .then(response => {
+      const stockData = transformStockPriceData(response)
+
+      if (stockData.length > 0) {
+        root.render(
+          <StockPriceChart
+            data={stockData}
+            title={`${ticker} Stock Price`}
+            height={300}
+            showVolume={false}
+            showLegend={true}
+            showGrid={true}
+            enableZoom={true}
+            enableBrush={true}
+          />
+        )
+      } else {
+        chartContainer.remove()
+        existingChartContainers.delete(messageId)
+      }
+    })
+    .catch(error => {
+      // Silently fail - don't show error to user
+      chartContainer.remove()
+      existingChartContainers.delete(messageId)
+    })
+}
+
 // Main App Component
 function App() {
   const [showRecommendations, setShowRecommendations] = useState(true)
   const [hasMessages, setHasMessages] = useState(false)
   const sendMessage = useMessageSender()
   const chatContainerRef = useRef<HTMLDivElement>(null)
+  const chartContainerRef = useRef<Map<string, HTMLElement>>(new Map())
 
   const handleRecommendationClick = useCallback((text: string) => {
     setShowRecommendations(false)
@@ -268,6 +385,77 @@ function App() {
       }
     }
   }, [showRecommendations, hasMessages, handleRecommendationClick])
+
+  // Monitor chat messages for stock queries and render charts
+  useEffect(() => {
+    const checkMessagesAndRenderCharts = () => {
+      // Find all message elements in the chat
+      const messageElements = document.querySelectorAll('[class*="message"], [class*="Message"], [role="presentation"]')
+
+      messageElements.forEach(element => {
+        const messageElement = element as HTMLElement
+
+        // Skip if we've already processed this message
+        if (messageElement.hasAttribute('data-chart-processed')) {
+          return
+        }
+
+        // Get the text content of the message
+        const textContent = messageElement.textContent || ''
+        if (!textContent || textContent.length < 10) {
+          return
+        }
+
+        // Check if this is a user message or assistant message containing stock query
+        const tickers = detectStockQuery(textContent)
+        if (tickers && tickers.length > 0) {
+          // Mark as processed
+          messageElement.setAttribute('data-chart-processed', 'true')
+
+          // Render chart for the first ticker found
+          const ticker = tickers[0]
+          renderChartForTicker(ticker, messageElement, chartContainerRef.current)
+        } else {
+          // Mark as processed even if no stock query found
+          messageElement.setAttribute('data-chart-processed', 'true')
+        }
+      })
+    }
+
+    // Set up MutationObserver to watch for new messages
+    const observer = new MutationObserver(() => {
+      checkMessagesAndRenderCharts()
+    })
+
+    // Start observing after a delay to ensure chat is mounted
+    const timeout = setTimeout(() => {
+      const chatContainer = document.querySelector('[class*="chat"], [class*="Chat"], [class*="conversation"], [class*="messages"]')
+      if (chatContainer) {
+        observer.observe(chatContainer, {
+          childList: true,
+          subtree: true
+        })
+      }
+
+      // Initial check
+      checkMessagesAndRenderCharts()
+    }, 1000)
+
+    // Also check periodically as a fallback
+    const interval = setInterval(checkMessagesAndRenderCharts, 3000)
+
+    return () => {
+      clearTimeout(timeout)
+      clearInterval(interval)
+      observer.disconnect()
+
+      // Clean up chart containers
+      chartContainerRef.current.forEach(container => {
+        container.remove()
+      })
+      chartContainerRef.current.clear()
+    }
+  }, [])
 
   // Prepare chat configuration
   const chatConfig = {
