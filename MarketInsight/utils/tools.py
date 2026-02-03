@@ -3,8 +3,10 @@ import requests
 import yfinance as yf
 from langchain.tools import tool
 from MarketInsight.utils.logger import get_logger
+from utils.api_throttler import get_throttler
 
 logger = get_logger("Tools")
+throttler = get_throttler()
 
 
 # --------------------------------------------------------------------------------
@@ -20,13 +22,14 @@ def get_stock_price(ticker: str):
     start_time = time.time()
 
     try:
-        stock = yf.Ticker(ticker)
-        stock_price = stock.info['regularMarketPrice']
+        with throttler.throttle("yfinance"):
+            stock = yf.Ticker(ticker)
+            stock_price = stock.info['regularMarketPrice']
         end_time = time.time()
 
         if stock_price is None:
             return "No price data available for {ticker}"
-        
+
         logger.info(f"Retrieved Stock Price of {ticker} in {end_time - start_time:.3f} seconds")
         return stock_price
 
@@ -47,8 +50,9 @@ def get_historical_data(ticker: str, start_date: str, end_date: str):
 
     try:
         start_time = time.time()
-        stock = yf.Ticker(ticker)
-        historical_data = stock.history(start=start_date, end=end_date).to_dict()
+        with throttler.throttle("yfinance"):
+            stock = yf.Ticker(ticker)
+            historical_data = stock.history(start=start_date, end=end_date).to_dict()
 
         if historical_data is None:
             return "No historical data available for {ticker}"
@@ -74,8 +78,9 @@ def get_stock_news(ticker: str):
 
     try:
         start_time = time.time()
-        stock = yf.Ticker(ticker)
-        news = stock.news
+        with throttler.throttle("yfinance"):
+            stock = yf.Ticker(ticker)
+            news = stock.news
 
         if news is None:
             return "No news available for {ticker}"
@@ -101,8 +106,9 @@ def get_balance_sheet(ticker: str):
 
     try:
         start_time = time.time()
-        stock = yf.Ticker(ticker)
-        balance_sheet = stock.balance_sheet.to_dict()
+        with throttler.throttle("yfinance"):
+            stock = yf.Ticker(ticker)
+            balance_sheet = stock.balance_sheet.to_dict()
 
         if balance_sheet is None:
             return "No balance sheet available for {ticker}"
@@ -128,8 +134,9 @@ def get_income_statement(ticker: str):
 
     try:
         start_time = time.time()
-        stock = yf.Ticker(ticker)
-        income_statement = stock.financials.to_dict()
+        with throttler.throttle("yfinance"):
+            stock = yf.Ticker(ticker)
+            income_statement = stock.financials.to_dict()
 
         if income_statement is None:
             return "No income statement available for {ticker}"
@@ -155,8 +162,9 @@ def get_cash_flow(ticker: str):
 
     try:
         start_time = time.time()
-        stock = yf.Ticker(ticker)
-        cash_flow = stock.cashflow.to_dict()
+        with throttler.throttle("yfinance"):
+            stock = yf.Ticker(ticker)
+            cash_flow = stock.cashflow.to_dict()
 
         if cash_flow is None:
             return "No cash flow available for {ticker}"
@@ -181,8 +189,9 @@ def get_company_info(ticker: str):
 
     try:
         start_time = time.time()
-        stock = yf.Ticker(ticker)
-        info = stock.info
+        with throttler.throttle("yfinance"):
+            stock = yf.Ticker(ticker)
+            info = stock.info
 
         if info is None:
             return "No company info available for {ticker}"
@@ -207,8 +216,9 @@ def get_dividends(ticker: str):
 
     try:
         start_time = time.time()
-        stock = yf.Ticker(ticker)
-        dividends = stock.dividends.to_dict()
+        with throttler.throttle("yfinance"):
+            stock = yf.Ticker(ticker)
+            dividends = stock.dividends.to_dict()
 
         if dividends is None:
             return "No dividends available for {ticker}"
@@ -233,8 +243,9 @@ def get_splits(ticker: str):
 
     try:
         start_time = time.time()
-        stock = yf.Ticker(ticker)
-        splits = stock.splits.to_dict()
+        with throttler.throttle("yfinance"):
+            stock = yf.Ticker(ticker)
+            splits = stock.splits.to_dict()
 
         if splits is None:
             return "No stock splits available for {ticker}"
@@ -260,8 +271,9 @@ def get_institutional_holders(ticker: str):
 
     try:
         start_time = time.time()
-        stock = yf.Ticker(ticker)
-        holders = stock.institutional_holders.to_dict()
+        with throttler.throttle("yfinance"):
+            stock = yf.Ticker(ticker)
+            holders = stock.institutional_holders.to_dict()
 
         if holders is None:
             return "No institutional holders available for {ticker}"
@@ -286,8 +298,9 @@ def get_major_shareholders(ticker: str):
 
     try:
         start_time = time.time()
-        stock = yf.Ticker(ticker)
-        holders = stock.major_holders.to_dict()
+        with throttler.throttle("yfinance"):
+            stock = yf.Ticker(ticker)
+            holders = stock.major_holders.to_dict()
 
         if holders is None:
             return "No major share holders available for {ticker}"
@@ -312,8 +325,9 @@ def get_mutual_fund_holders(ticker: str):
 
     try:
         start_time = time.time()
-        stock = yf.Ticker(ticker)
-        holders = stock.mutualfund_holders.to_dict()
+        with throttler.throttle("yfinance"):
+            stock = yf.Ticker(ticker)
+            holders = stock.mutualfund_holders.to_dict()
 
         if holders is None:
             return "No mutual fund holders available for {ticker}"
@@ -338,8 +352,9 @@ def get_insider_transactions(ticker: str):
 
     try:
         start_time = time.time()
-        stock = yf.Ticker(ticker)
-        insider_txn = stock.insider_transactions.to_dict()
+        with throttler.throttle("yfinance"):
+            stock = yf.Ticker(ticker)
+            insider_txn = stock.insider_transactions.to_dict()
 
         if insider_txn is None:
             return "No insider transactions available for {ticker}"
@@ -358,14 +373,15 @@ def get_insider_transactions(ticker: str):
 @tool('get_analyst_recommendations', description="A function that returns the analyst recommendations of a given ticker")
 def get_analyst_recommendations(ticker: str):
     logger.info(f"Retrieving Analyst Recommendations of {ticker}")
-    
+
     if not ticker or not isinstance(ticker, str):
         return "Error: Invalid ticker provided. Please provide a valid ticker symbol."
 
     try:
         start_time = time.time()
-        stock = yf.Ticker(ticker)
-        recommendations = stock.recommendations.to_dict()
+        with throttler.throttle("yfinance"):
+            stock = yf.Ticker(ticker)
+            recommendations = stock.recommendations.to_dict()
 
         if recommendations is None:
             return "No analyst recommendations available for {ticker}"
@@ -384,14 +400,15 @@ def get_analyst_recommendations(ticker: str):
 @tool('get_analyst_recommendations_summary', description="A function that returns the analyst recommendations summary of a given ticker")
 def get_analyst_recommendations_summary(ticker: str):
     logger.info(f"Retrieving Analyst Recommendations Summary of {ticker}")
-    
+
     if not ticker or not isinstance(ticker, str):
         return "Error: Invalid ticker provided. Please provide a valid ticker symbol."
 
     try:
         start_time = time.time()
-        stock = yf.Ticker(ticker)
-        recommendations = stock.recommendations_summary.to_dict()
+        with throttler.throttle("yfinance"):
+            stock = yf.Ticker(ticker)
+            recommendations = stock.recommendations_summary.to_dict()
 
         if recommendations is None:
             return "No analyst recommendations summary available for {ticker}"
@@ -410,15 +427,16 @@ def get_analyst_recommendations_summary(ticker: str):
 @tool('get_ticker', description="A function that returns the ticker/symbol of a given company")
 def get_ticker(company_name: str):
     logger.info("Retrieving Ticker of {company_name}")
-    
+
     if not company_name or not isinstance(company_name, str):
         return "Error: Invalid company name provided. Please provide a valid company name."
 
     try:
         start_time = time.time()
-        url = f"https://query2.finance.yahoo.com/v1/finance/search?q={company_name}"
-        response = requests.get(url)
-        
+        with throttler.throttle("yfinance"):
+            url = f"https://query2.finance.yahoo.com/v1/finance/search?q={company_name}"
+            response = requests.get(url)
+
         if response.status_code == 200:
             data = response.json()
             ticker = data['quotes'][0]['symbol']
@@ -427,7 +445,7 @@ def get_ticker(company_name: str):
             return ticker
         else:
             return "Error: Failed to retrieve ticker. Please try again later."
-            
+
     except Exception as e:
         logger.error(f"Failed to retrieve ticker of {company_name}: {str(e)}")
         return "Error: Failed to retrieve ticker. Please try again later."
