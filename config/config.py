@@ -88,6 +88,7 @@ class ChartDataPoint(BaseModel):
     high: Optional[float] = None  # High price (for candlestick charts)
     low: Optional[float] = None  # Low price (for candlestick charts)
     close: Optional[float] = None  # Closing price (for candlestick charts)
+    metadata: Optional[Dict[str, Any]] = None  # Additional metrics (for financial statements)
 
 
 class ChartResponse(BaseModel):

@@ -179,6 +179,155 @@ async def get_stock_price_chart(
         )
 
 
+@app.get("/api/charts/financial-statement")
+@limiter.limit("60/minute")
+async def get_financial_statement_chart(
+    request: Request,
+    ticker: str = Query(..., description="Stock ticker symbol (e.g., AAPL)"),
+    statement_type: str = Query(..., description="Statement type: income, balance, or cash_flow"),
+    api_key: str = Depends(get_api_key)
+):
+    """
+    Financial statement chart endpoint returning structured data for visualization.
+
+    Provides financial statement data (income statement, balance sheet, or cash flow) for the specified ticker.
+    Returns data in a format suitable for chart libraries with support for bar charts and time-series analysis.
+
+    Args:
+        ticker: Stock ticker symbol (e.g., AAPL, MSFT, GOOGL)
+        statement_type: Type of financial statement (income, balance, or cash_flow)
+            - income: Income statement (revenue, expenses, net income)
+            - balance: Balance sheet (assets, liabilities, equity)
+            - cash_flow: Cash flow statement (operating, investing, financing activities)
+
+    Returns:
+        ChartResponse: Structured chart data with metadata and data points
+
+    Raises:
+        HTTPException 400: If ticker or statement_type validation fails
+        HTTPException 503: If external service (yfinance) is unavailable
+    """
+    # Validate ticker symbol
+    try:
+        validated_ticker = validate_ticker(ticker)
+    except TickerValidationError as e:
+        logger.warning(f"Ticker validation failed for financial statement request: {e.message}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": e.message,
+                "error_type": "TickerValidationError",
+                "field": "ticker"
+            }
+        )
+
+    # Validate statement_type parameter
+    valid_statement_types = ["income", "balance", "cash_flow"]
+    if statement_type not in valid_statement_types:
+        logger.warning(f"Invalid statement_type parameter: {statement_type}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": f"Invalid statement_type '{statement_type}'. Must be one of: {', '.join(valid_statement_types)}",
+                "error_type": "ValidationError",
+                "field": "statement_type"
+            }
+        )
+
+    try:
+        # Fetch financial statement data from yfinance
+        with throttler.throttle("yfinance"):
+            stock = yf.Ticker(validated_ticker)
+
+            # Get the appropriate financial statement based on statement_type
+            if statement_type == "income":
+                financial_data = stock.income_stmt
+                chart_type = "bar"
+            elif statement_type == "balance":
+                financial_data = stock.balance_sheet
+                chart_type = "bar"
+            else:  # cash_flow
+                financial_data = stock.cash_flow
+                chart_type = "bar"
+
+        # Check if data is available
+        if financial_data is None or financial_data.empty:
+            logger.warning(f"No financial statement data available for {validated_ticker} with type {statement_type}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error": f"No financial statement data available for {validated_ticker} with the specified type",
+                    "error_type": "ExternalServiceError",
+                    "ticker": validated_ticker,
+                    "statement_type": statement_type
+                }
+            )
+
+        # Convert DataFrame columns to list of ChartDataPoint
+        # Financial statements have dates as columns and metrics as rows
+        data_points = []
+        for col in financial_data.columns:
+            # Format date as ISO string (yfinance returns Timestamp objects)
+            if hasattr(col, 'strftime'):
+                date_str = col.strftime("%Y-%m-%d")
+            else:
+                date_str = str(col)
+
+            # Extract all metric values for this date
+            metric_values = {}
+            for idx, row in financial_data.iterrows():
+                metric_name = str(idx)
+                value = row[col]
+                # Skip NaN values
+                if value == value:  # NaN check
+                    try:
+                        metric_values[metric_name] = float(value)
+                    except (TypeError, ValueError):
+                        pass
+
+            # Create data point with the date and primary metrics
+            # For bar charts, we'll use the first few key metrics as the main values
+            data_point = ChartDataPoint(
+                date=date_str,
+                value=list(metric_values.values())[0] if metric_values else None,
+                metadata=metric_values if metric_values else {}
+            )
+            data_points.append(data_point)
+
+        # Create response with metadata
+        response = ChartResponse(
+            ticker=validated_ticker,
+            chart_type=chart_type,
+            period=statement_type,
+            data=data_points,
+            metadata={
+                "data_points": len(data_points),
+                "date_range": {
+                    "start": data_points[0].date if data_points else None,
+                    "end": data_points[-1].date if data_points else None
+                },
+                "statement_type": statement_type,
+                "available_metrics": list(financial_data.index.tolist()) if not financial_data.empty else []
+            }
+        )
+
+        logger.info(f"Successfully retrieved {statement_type} statement data for {validated_ticker}: {len(data_points)} data points")
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to retrieve financial statement data for {validated_ticker}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error": "Failed to retrieve financial statement data. Please try again later.",
+                "error_type": "ExternalServiceError",
+                "service": "yfinance"
+            }
+        )
+
+
 @app.post("/api/chat")
 @limiter.limit("100/minute")
 async def chat(request: Request, body: RequestObject, api_key: str = Depends(get_api_key)):
