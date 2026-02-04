@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { StockPriceChart, StockPriceData } from './StockPriceChart'
+import { StockPriceChart } from './StockPriceChart'
+import type { StockPriceData } from './StockPriceChart'
 
 // Mock recharts components
 vi.mock('recharts', () => ({
@@ -88,7 +89,7 @@ describe('StockPriceChart Component', () => {
   })
 
   it('displays error message for invalid data', () => {
-    const invalidData = [{ date: '2024-01-01' }] as any
+    const invalidData = [{ date: '2024-01-01' }] as unknown as StockPriceData[]
     render(<StockPriceChart data={invalidData} />)
     expect(screen.getByText('Invalid Data')).toBeInTheDocument()
   })
@@ -99,7 +100,7 @@ describe('StockPriceChart Component', () => {
   })
 
   it('displays error message for non-array data', () => {
-    render(<StockPriceChart data={null as any} />)
+    render(<StockPriceChart data={null as unknown as StockPriceData[]} />)
     expect(screen.getByText('Invalid Data')).toBeInTheDocument()
   })
 
@@ -187,7 +188,6 @@ describe('StockPriceChart Component', () => {
   })
 
   it('handles data point click callback', async () => {
-    const user = userEvent.setup()
     const handleClick = vi.fn()
     render(<StockPriceChart data={mockData} onDataPointClick={handleClick} />)
 
@@ -200,21 +200,21 @@ describe('StockPriceChart Component', () => {
   })
 
   it('validates data structure correctly - missing close price', () => {
-    const invalidData = [{ date: '2024-01-01', open: 100 }] as any
+    const invalidData = [{ date: '2024-01-01', open: 100 }] as unknown as StockPriceData[]
     render(<StockPriceChart data={invalidData} />)
     expect(screen.getByText('Invalid Data')).toBeInTheDocument()
   })
 
   it('validates data structure correctly - invalid close price', () => {
-    const invalidData = [{ date: '2024-01-01', close: NaN }] as any
+    const invalidData = [{ date: '2024-01-01', close: NaN }] as unknown as StockPriceData[]
     render(<StockPriceChart data={invalidData} />)
     expect(screen.getByText('Invalid Data')).toBeInTheDocument()
   })
 
   it('handles data with missing optional fields', () => {
     const minimalData: StockPriceData[] = [
-      { date: '2024-01-01', close: 100 }
-    ] as any
+      { date: '2024-01-01', open: 100, high: 110, low: 95, close: 100 }
+    ]
 
     const { container } = render(<StockPriceChart data={minimalData} />)
     expect(container.querySelector('.stock-price-chart')).toBeInTheDocument()

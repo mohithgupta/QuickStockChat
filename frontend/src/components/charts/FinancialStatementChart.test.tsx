@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { FinancialStatementChart, FinancialDataPoint } from './FinancialStatementChart'
+import { FinancialStatementChart } from './FinancialStatementChart'
+import type { FinancialDataPoint } from './FinancialStatementChart'
 
 // Mock recharts components
 vi.mock('recharts', () => ({
@@ -27,12 +28,12 @@ vi.mock('recharts', () => ({
   Cell: ({ fill }: { fill: string }) => (
     <div data-testid="cell" data-fill={fill} />
   ),
-  XAxis: ({ dataKey, label }: { dataKey?: string; label?: any }) => (
+  XAxis: ({ dataKey, label }: { dataKey?: string; label?: { value?: string } }) => (
     <div data-testid="x-axis" data-key={dataKey} data-label={label?.value}>
       {label?.value && <span>{label.value}</span>}
     </div>
   ),
-  YAxis: ({ label }: { label?: any }) => (
+  YAxis: ({ label }: { label?: { value?: string } }) => (
     <div data-testid="y-axis" data-label={label?.value}>
       {label?.value && <span>{label.value}</span>}
     </div>
@@ -102,7 +103,7 @@ describe('FinancialStatementChart Component', () => {
   })
 
   it('displays error message for invalid data', () => {
-    const invalidData = [{ label: 'Revenue' }] as any
+    const invalidData = [{ label: 'Revenue' }] as unknown as FinancialDataPoint[]
     render(<FinancialStatementChart data={invalidData} />)
     expect(screen.getByText('Invalid Data')).toBeInTheDocument()
   })
@@ -113,7 +114,7 @@ describe('FinancialStatementChart Component', () => {
   })
 
   it('displays error message for non-array data', () => {
-    render(<FinancialStatementChart data={null as any} />)
+    render(<FinancialStatementChart data={null as unknown as FinancialDataPoint[]} />)
     expect(screen.getByText('Invalid Data')).toBeInTheDocument()
   })
 
@@ -213,13 +214,13 @@ describe('FinancialStatementChart Component', () => {
   })
 
   it('validates data structure correctly - missing value', () => {
-    const invalidData = [{ label: 'Revenue' }] as any
+    const invalidData = [{ label: 'Revenue' }] as unknown as FinancialDataPoint[]
     render(<FinancialStatementChart data={invalidData} />)
     expect(screen.getByText('Invalid Data')).toBeInTheDocument()
   })
 
   it('validates data structure correctly - invalid value', () => {
-    const invalidData = [{ label: 'Revenue', value: NaN }] as any
+    const invalidData = [{ label: 'Revenue', value: NaN }] as unknown as FinancialDataPoint[]
     render(<FinancialStatementChart data={invalidData} />)
     expect(screen.getByText('Invalid Data')).toBeInTheDocument()
   })

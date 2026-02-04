@@ -29,7 +29,7 @@ export interface ChartDataPoint {
   low?: number
   close?: number
   volume?: number
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 /**
@@ -302,7 +302,7 @@ export function transformFinancialStatementData(response: ChartResponse): Financ
       // Filter out data points without required value
       return typeof point.value === 'number' && !isNaN(point.value)
     })
-    .map((point, index) => ({
+    .map((point) => ({
       label: point.date,
       value: point.value,
       category: response.metadata?.statement_type || response.chart_type,

@@ -42,8 +42,23 @@ export interface StockPriceChartProps {
   brushHeight?: number
 }
 
+// Type for Recharts tooltip props
+interface CustomTooltipProps {
+  active?: boolean
+  payload?: Array<{
+    payload: StockPriceData
+    name?: string
+    value?: number
+  }>
+}
+
+// Type for chart event data
+interface ChartEventData {
+  activeTooltipIndex?: number | string | null
+}
+
 // Custom tooltip component
-const CustomTooltip = ({ active, payload }: any) => {
+const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
   if (!active || !payload || !payload.length) {
     return null
   }
@@ -106,24 +121,26 @@ const LineChartView = ({
   const [isZoomed, setIsZoomed] = useState(false)
 
   const handleClick = useCallback(
-    (data: any) => {
-      if (onDataPointClick && data) {
-        onDataPointClick(data)
+    (event: unknown) => {
+      if (onDataPointClick && event && typeof event === 'object' && 'payload' in event) {
+        onDataPointClick(event.payload as StockPriceData)
       }
     },
     [onDataPointClick]
   )
 
   // Handle zoom selection
-  const handleMouseDown = useCallback((chartData: any) => {
+  const handleMouseDown = useCallback((chartData: ChartEventData) => {
     if (enableZoom) {
-      setZoomArea({ startIndex: chartData.activeTooltipIndex })
+      const index = typeof chartData.activeTooltipIndex === 'number' ? chartData.activeTooltipIndex : undefined
+      setZoomArea({ startIndex: index })
     }
   }, [enableZoom])
 
-  const handleMouseMove = useCallback((chartData: any) => {
+  const handleMouseMove = useCallback((chartData: ChartEventData) => {
     if (enableZoom && zoomArea && zoomArea.startIndex !== undefined) {
-      setZoomArea({ ...zoomArea, endIndex: chartData.activeTooltipIndex })
+      const index = typeof chartData.activeTooltipIndex === 'number' ? chartData.activeTooltipIndex : undefined
+      setZoomArea({ ...zoomArea, endIndex: index })
     }
   }, [enableZoom, zoomArea])
 
@@ -145,8 +162,14 @@ const LineChartView = ({
     setIsZoomed(false)
   }, [data])
 
+  // Type for brush event data
+  interface BrushEventData {
+    startIndex?: number
+    endIndex?: number
+  }
+
   // Handle brush change
-  const handleBrushChange = useCallback((brushData: any) => {
+  const handleBrushChange = useCallback((brushData: BrushEventData) => {
     if (enableBrush && brushData && brushData.startIndex !== undefined && brushData.endIndex !== undefined) {
       const start = Math.min(brushData.startIndex, brushData.endIndex)
       const end = Math.max(brushData.startIndex, brushData.endIndex)
@@ -238,7 +261,6 @@ const LineChartView = ({
 const CandlestickChartView = ({
   data,
   upColor,
-  downColor: _downColor,
   onDataPointClick,
   showGrid,
   showLegend,
@@ -283,15 +305,17 @@ const CandlestickChartView = ({
   }, [data, filteredData, isZoomed])
 
   // Handle zoom selection
-  const handleMouseDown = useCallback((chartData: any) => {
+  const handleMouseDown = useCallback((chartData: ChartEventData) => {
     if (enableZoom) {
-      setZoomArea({ startIndex: chartData.activeTooltipIndex })
+      const index = typeof chartData.activeTooltipIndex === 'number' ? chartData.activeTooltipIndex : undefined
+      setZoomArea({ startIndex: index })
     }
   }, [enableZoom])
 
-  const handleMouseMove = useCallback((chartData: any) => {
+  const handleMouseMove = useCallback((chartData: ChartEventData) => {
     if (enableZoom && zoomArea && zoomArea.startIndex !== undefined) {
-      setZoomArea({ ...zoomArea, endIndex: chartData.activeTooltipIndex })
+      const index = typeof chartData.activeTooltipIndex === 'number' ? chartData.activeTooltipIndex : undefined
+      setZoomArea({ ...zoomArea, endIndex: index })
     }
   }, [enableZoom, zoomArea])
 
@@ -314,8 +338,14 @@ const CandlestickChartView = ({
     setIsZoomed(false)
   }, [data])
 
+  // Type for brush event data
+  interface BrushEventData {
+    startIndex?: number
+    endIndex?: number
+  }
+
   // Handle brush change
-  const handleBrushChange = useCallback((brushData: any) => {
+  const handleBrushChange = useCallback((brushData: BrushEventData) => {
     if (enableBrush && brushData && brushData.startIndex !== undefined && brushData.endIndex !== undefined) {
       const start = Math.min(brushData.startIndex, brushData.endIndex)
       const end = Math.max(brushData.startIndex, brushData.endIndex)
@@ -494,7 +524,6 @@ export function StockPriceChart({
   chartType = 'line',
   title,
   height = 400,
-  showVolume: _showVolume,
   showLegend = true,
   showGrid = true,
   lineColor,
