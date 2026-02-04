@@ -82,7 +82,7 @@ class ValidationErrorResponse(BaseModel):
 class ChartDataPoint(BaseModel):
     """Model for a single data point in a chart."""
     date: str  # ISO format date string (e.g., "2024-01-15")
-    value: float  # The primary value (e.g., stock price, revenue)
+    value: Optional[float] = None  # The primary value (e.g., stock price, revenue)
     volume: Optional[float] = None  # Trading volume (for stock charts)
     open: Optional[float] = None  # Opening price (for candlestick charts)
     high: Optional[float] = None  # High price (for candlestick charts)

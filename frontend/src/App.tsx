@@ -207,7 +207,8 @@ function detectFinancialStatementQuery(message: string): { ticker: string; state
 function renderChartForTicker(
   ticker: string,
   messageElement: HTMLElement,
-  existingChartContainers: Map<string, HTMLElement>
+  existingChartContainers: Map<string, HTMLElement>,
+  existingRoots: Map<string, ReturnType<typeof createRoot>>
 ): void {
   // Check if we already rendered a chart for this message
   const messageId = messageElement.getAttribute('data-message-id') || `${Date.now()}-${Math.random()}`
@@ -235,6 +236,7 @@ function renderChartForTicker(
 
   // Create a React root and render the chart
   const root = createRoot(chartContainer)
+  existingRoots.set(messageId, root)
 
   // Fetch chart data and render
   fetchStockPriceChart({ ticker, period: '1mo' })
@@ -255,14 +257,18 @@ function renderChartForTicker(
           />
         )
       } else {
+        root.unmount()
         chartContainer.remove()
         existingChartContainers.delete(messageId)
+        existingRoots.delete(messageId)
       }
     })
     .catch(() => {
       // Silently fail - don't show error to user
+      root.unmount()
       chartContainer.remove()
       existingChartContainers.delete(messageId)
+      existingRoots.delete(messageId)
     })
 }
 
@@ -273,7 +279,8 @@ function renderFinancialStatementChart(
   ticker: string,
   statementType: 'income' | 'balance' | 'cash_flow',
   messageElement: HTMLElement,
-  existingChartContainers: Map<string, HTMLElement>
+  existingChartContainers: Map<string, HTMLElement>,
+  existingRoots: Map<string, ReturnType<typeof createRoot>>
 ): void {
   // Check if we already rendered a chart for this message
   const messageId = messageElement.getAttribute('data-financial-chart-id') || `${Date.now()}-${Math.random()}`
@@ -301,6 +308,7 @@ function renderFinancialStatementChart(
 
   // Create a React root and render the chart
   const root = createRoot(chartContainer)
+  existingRoots.set(messageId, root)
 
   // Determine title based on statement type
   const statementTypeLabels: Record<string, string> = {
@@ -329,14 +337,18 @@ function renderFinancialStatementChart(
           />
         )
       } else {
+        root.unmount()
         chartContainer.remove()
         existingChartContainers.delete(messageId)
+        existingRoots.delete(messageId)
       }
     })
     .catch(() => {
       // Silently fail - don't show error to user
+      root.unmount()
       chartContainer.remove()
       existingChartContainers.delete(messageId)
+      existingRoots.delete(messageId)
     })
 }
 
@@ -347,6 +359,7 @@ function App() {
   const sendMessage = useMessageSender()
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const chartContainerRef = useRef<Map<string, HTMLElement>>(new Map())
+  const chartRootsRef = useRef<Map<string, ReturnType<typeof createRoot>>>(new Map())
 
   const handleRecommendationClick = useCallback((text: string) => {
     setShowRecommendations(false)
@@ -549,7 +562,8 @@ function App() {
             financialQuery.ticker,
             financialQuery.statementType,
             messageElement,
-            chartContainerRef.current
+            chartContainerRef.current,
+            chartRootsRef.current
           )
         } else {
           // Check if this is a stock price query
@@ -560,7 +574,7 @@ function App() {
 
             // Render chart for the first ticker found
             const ticker = tickers[0]
-            renderChartForTicker(ticker, messageElement, chartContainerRef.current)
+            renderChartForTicker(ticker, messageElement, chartContainerRef.current, chartRootsRef.current)
           } else {
             // Mark as processed even if no query found
             messageElement.setAttribute('data-chart-processed', 'true')
@@ -596,7 +610,13 @@ function App() {
       clearInterval(interval)
       observer.disconnect()
 
-      // Clean up chart containers
+      // Clean up chart roots first to properly unmount React components
+      chartRootsRef.current.forEach(root => {
+        root.unmount()
+      })
+      chartRootsRef.current.clear()
+
+      // Then remove the containers
       chartContainerRef.current.forEach(container => {
         container.remove()
       })

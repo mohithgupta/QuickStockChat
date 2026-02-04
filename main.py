@@ -1,5 +1,6 @@
 import os
 import uvicorn
+import pandas as pd
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Request, HTTPException, Depends, status, Query
 from fastapi.responses import JSONResponse
@@ -115,12 +116,12 @@ async def get_stock_price_chart(
             # Create data point with all available fields
             data_point = ChartDataPoint(
                 date=date_str,
-                value=float(row['Close']) if 'Close' in row and not row['Close'] != row['Close'] else None,
-                open=float(row['Open']) if 'Open' in row and not row['Open'] != row['Open'] else None,
-                high=float(row['High']) if 'High' in row and not row['High'] != row['High'] else None,
-                low=float(row['Low']) if 'Low' in row and not row['Low'] != row['Low'] else None,
-                close=float(row['Close']) if 'Close' in row and not row['Close'] != row['Close'] else None,
-                volume=float(row['Volume']) if 'Volume' in row and not row['Volume'] != row['Volume'] else None
+                value=float(row['Close']) if 'Close' in row and pd.notna(row['Close']) else None,
+                open=float(row['Open']) if 'Open' in row and pd.notna(row['Open']) else None,
+                high=float(row['High']) if 'High' in row and pd.notna(row['High']) else None,
+                low=float(row['Low']) if 'Low' in row and pd.notna(row['Low']) else None,
+                close=float(row['Close']) if 'Close' in row and pd.notna(row['Close']) else None,
+                volume=float(row['Volume']) if 'Volume' in row and pd.notna(row['Volume']) else None
             )
             data_points.append(data_point)
 
