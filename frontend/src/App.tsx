@@ -605,22 +605,26 @@ function App() {
     // Also check periodically as a fallback
     const interval = setInterval(checkMessagesAndRenderCharts, 3000)
 
+    // Capture ref values for cleanup
+    const chartRoots = chartRootsRef.current
+    const chartContainers = chartContainerRef.current
+
     return () => {
       clearTimeout(timeout)
       clearInterval(interval)
       observer.disconnect()
 
       // Clean up chart roots first to properly unmount React components
-      chartRootsRef.current.forEach(root => {
+      chartRoots.forEach(root => {
         root.unmount()
       })
-      chartRootsRef.current.clear()
+      chartRoots.clear()
 
       // Then remove the containers
-      chartContainerRef.current.forEach(container => {
+      chartContainers.forEach(container => {
         container.remove()
       })
-      chartContainerRef.current.clear()
+      chartContainers.clear()
     }
   }, [])
 
