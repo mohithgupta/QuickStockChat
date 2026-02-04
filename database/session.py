@@ -32,14 +32,18 @@ _CONNECT_ARGS = {"check_same_thread": False} if _DATABASE_URL.startswith("sqlite
 # Engine configuration
 # - echo=False: Disable SQL query logging (set to True for debugging)
 # - pool_pre_ping=True: Verify connections before using them
-# - pool_recycle: Recycle connections after 1 hour (PostgreSQL)
-engine = create_engine(
-    _DATABASE_URL,
-    connect_args=_CONNECT_ARGS,
-    echo=False,
-    pool_pre_ping=True,
-    pool_recycle=3600 if _DATABASE_URL.startswith("postgresql") else None
-)
+# - pool_recycle: Recycle connections after 1 hour (PostgreSQL), -1 for SQLite (disabled)
+_engine_kwargs = {
+    "connect_args": _CONNECT_ARGS,
+    "echo": False,
+    "pool_pre_ping": True,
+}
+
+# Only set pool_recycle for PostgreSQL (SQLite doesn't support connection pooling)
+if _DATABASE_URL.startswith("postgresql"):
+    _engine_kwargs["pool_recycle"] = 3600
+
+engine = create_engine(_DATABASE_URL, **_engine_kwargs)
 
 # Session factory
 # - autocommit=False: Transactions must be explicitly committed
