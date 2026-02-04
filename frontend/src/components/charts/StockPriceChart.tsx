@@ -259,7 +259,6 @@ const LineChartView = ({
 const CandlestickChartView = ({
   data,
   upColor,
-  downColor: _downColor,
   onDataPointClick,
   showGrid,
   showLegend,
@@ -521,7 +520,6 @@ export function StockPriceChart({
   chartType = 'line',
   title,
   height = 400,
-  showVolume: _showVolume,
   showLegend = true,
   showGrid = true,
   lineColor,

@@ -422,7 +422,6 @@ export function FinancialStatementChart({
   className = '',
   xAxisLabel,
   yAxisLabel,
-  showDataLabels: _showDataLabels,
   enableZoom = true,
   enableBrush = true,
   brushHeight = 40
