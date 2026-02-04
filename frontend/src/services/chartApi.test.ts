@@ -81,12 +81,14 @@ describe('chartApi Service', () => {
 
     it('should validate ticker parameter', async () => {
       await expect(fetchStockPriceChart({ ticker: '' })).rejects.toThrow('Ticker is required')
-      await expect(fetchStockPriceChart({ ticker: null as unknown })).rejects.toThrow('Ticker is required')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await expect(fetchStockPriceChart({ ticker: null as any })).rejects.toThrow('Ticker is required')
     })
 
     it('should validate period parameter', async () => {
       await expect(
-        fetchStockPriceChart({ ticker: 'AAPL', period: 'invalid' as unknown })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        fetchStockPriceChart({ ticker: 'AAPL', period: 'invalid' as any })
       ).rejects.toThrow("Invalid period 'invalid'")
     })
 
@@ -218,7 +220,8 @@ describe('chartApi Service', () => {
 
     it('should validate statement type parameter', async () => {
       await expect(
-        fetchFinancialStatementChart({ ticker: 'AAPL', statementType: 'invalid' as unknown })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        fetchFinancialStatementChart({ ticker: 'AAPL', statementType: 'invalid' as any })
       ).rejects.toThrow("Invalid statement type 'invalid'")
     })
 
@@ -301,7 +304,8 @@ describe('chartApi Service', () => {
           },
           {
             date: '2024-01-17'
-          } as unknown
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } as any
         ]
       }
 
@@ -337,10 +341,12 @@ describe('chartApi Service', () => {
     })
 
     it('should return empty array for invalid data', () => {
-      expect(transformStockPriceData(null as unknown)).toEqual([])
-      expect(transformStockPriceData(undefined as unknown)).toEqual([])
-      expect(transformStockPriceData({ data: null } as unknown)).toEqual([])
-      expect(transformStockPriceData({ data: [] } as unknown)).toEqual([])
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      expect(transformStockPriceData(null as any)).toEqual([])
+      expect(transformStockPriceData(undefined as any)).toEqual([])
+      expect(transformStockPriceData({ data: null } as any)).toEqual([])
+      expect(transformStockPriceData({ data: [] } as any)).toEqual([])
+      /* eslint-enable @typescript-eslint/no-explicit-any */
     })
   })
 
@@ -389,7 +395,8 @@ describe('chartApi Service', () => {
           },
           {
             date: '2021-12-31'
-          } as unknown
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } as any
         ]
       }
 
@@ -418,10 +425,12 @@ describe('chartApi Service', () => {
     })
 
     it('should return empty array for invalid data', () => {
-      expect(transformFinancialStatementData(null as unknown)).toEqual([])
-      expect(transformFinancialStatementData(undefined as unknown)).toEqual([])
-      expect(transformFinancialStatementData({ data: null } as unknown)).toEqual([])
-      expect(transformFinancialStatementData({ data: [] } as unknown)).toEqual([])
+      /* eslint-disable @typescript-eslint/no-explicit-any */
+      expect(transformFinancialStatementData(null as any)).toEqual([])
+      expect(transformFinancialStatementData(undefined as any)).toEqual([])
+      expect(transformFinancialStatementData({ data: null } as any)).toEqual([])
+      expect(transformFinancialStatementData({ data: [] } as any)).toEqual([])
+      /* eslint-enable @typescript-eslint/no-explicit-any */
     })
   })
 
