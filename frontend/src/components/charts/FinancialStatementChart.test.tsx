@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { FinancialStatementChart, FinancialDataPoint } from './FinancialStatementChart'
+import { FinancialStatementChart } from './FinancialStatementChart'
+import type { FinancialDataPoint } from './FinancialStatementChart'
 
 // Mock recharts components
 vi.mock('recharts', () => ({
