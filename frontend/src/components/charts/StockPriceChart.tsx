@@ -121,8 +121,8 @@ const LineChartView = ({
   const [isZoomed, setIsZoomed] = useState(false)
 
   const handleClick = useCallback(
-    (event: any) => {
-      if (onDataPointClick && event && event.payload) {
+    (event: unknown) => {
+      if (onDataPointClick && event && typeof event === 'object' && 'payload' in event) {
         onDataPointClick(event.payload as StockPriceData)
       }
     },

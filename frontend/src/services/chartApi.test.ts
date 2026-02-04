@@ -81,12 +81,12 @@ describe('chartApi Service', () => {
 
     it('should validate ticker parameter', async () => {
       await expect(fetchStockPriceChart({ ticker: '' })).rejects.toThrow('Ticker is required')
-      await expect(fetchStockPriceChart({ ticker: null as any })).rejects.toThrow('Ticker is required')
+      await expect(fetchStockPriceChart({ ticker: null as unknown })).rejects.toThrow('Ticker is required')
     })
 
     it('should validate period parameter', async () => {
       await expect(
-        fetchStockPriceChart({ ticker: 'AAPL', period: 'invalid' as any })
+        fetchStockPriceChart({ ticker: 'AAPL', period: 'invalid' as unknown })
       ).rejects.toThrow("Invalid period 'invalid'")
     })
 
@@ -218,7 +218,7 @@ describe('chartApi Service', () => {
 
     it('should validate statement type parameter', async () => {
       await expect(
-        fetchFinancialStatementChart({ ticker: 'AAPL', statementType: 'invalid' as any })
+        fetchFinancialStatementChart({ ticker: 'AAPL', statementType: 'invalid' as unknown })
       ).rejects.toThrow("Invalid statement type 'invalid'")
     })
 
@@ -301,7 +301,7 @@ describe('chartApi Service', () => {
           },
           {
             date: '2024-01-17'
-          } as any
+          } as unknown
         ]
       }
 
@@ -337,10 +337,10 @@ describe('chartApi Service', () => {
     })
 
     it('should return empty array for invalid data', () => {
-      expect(transformStockPriceData(null as any)).toEqual([])
-      expect(transformStockPriceData(undefined as any)).toEqual([])
-      expect(transformStockPriceData({ data: null } as any)).toEqual([])
-      expect(transformStockPriceData({ data: [] } as any)).toEqual([])
+      expect(transformStockPriceData(null as unknown)).toEqual([])
+      expect(transformStockPriceData(undefined as unknown)).toEqual([])
+      expect(transformStockPriceData({ data: null } as unknown)).toEqual([])
+      expect(transformStockPriceData({ data: [] } as unknown)).toEqual([])
     })
   })
 
@@ -389,7 +389,7 @@ describe('chartApi Service', () => {
           },
           {
             date: '2021-12-31'
-          } as any
+          } as unknown
         ]
       }
 
@@ -418,10 +418,10 @@ describe('chartApi Service', () => {
     })
 
     it('should return empty array for invalid data', () => {
-      expect(transformFinancialStatementData(null as any)).toEqual([])
-      expect(transformFinancialStatementData(undefined as any)).toEqual([])
-      expect(transformFinancialStatementData({ data: null } as any)).toEqual([])
-      expect(transformFinancialStatementData({ data: [] } as any)).toEqual([])
+      expect(transformFinancialStatementData(null as unknown)).toEqual([])
+      expect(transformFinancialStatementData(undefined as unknown)).toEqual([])
+      expect(transformFinancialStatementData({ data: null } as unknown)).toEqual([])
+      expect(transformFinancialStatementData({ data: [] } as unknown)).toEqual([])
     })
   })
 
@@ -465,7 +465,7 @@ describe('chartApi Service', () => {
       expect(isValidChartResponse({})).toBe(false)
       expect(isValidChartResponse({ ticker: 'AAPL' })).toBe(false)
       expect(isValidChartResponse({ ticker: 'AAPL', chart_type: 'line', period: '1mo', data: [] })).toBe(false)
-      expect(isValidChartResponse({ ticker: 'AAPL', chart_type: 'line', period: '1mo' } as any)).toBe(false)
+      expect(isValidChartResponse({ ticker: 'AAPL', chart_type: 'line', period: '1mo' } as unknown)).toBe(false)
     })
 
     it('should validate all required fields', () => {
@@ -474,10 +474,10 @@ describe('chartApi Service', () => {
       const missingPeriod = { ticker: 'AAPL', chart_type: 'line', data: [{}] }
       const missingData = { ticker: 'AAPL', chart_type: 'line', period: '1mo' }
 
-      expect(isValidChartResponse(missingTicker as any)).toBe(false)
-      expect(isValidChartResponse(missingChartType as any)).toBe(false)
-      expect(isValidChartResponse(missingPeriod as any)).toBe(false)
-      expect(isValidChartResponse(missingData as any)).toBe(false)
+      expect(isValidChartResponse(missingTicker as unknown)).toBe(false)
+      expect(isValidChartResponse(missingChartType as unknown)).toBe(false)
+      expect(isValidChartResponse(missingPeriod as unknown)).toBe(false)
+      expect(isValidChartResponse(missingData as unknown)).toBe(false)
     })
   })
 })

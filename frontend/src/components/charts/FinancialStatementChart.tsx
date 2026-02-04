@@ -136,8 +136,8 @@ const BarChartView = ({
   brushHeight?: number
 }) => {
   const handleClick = useCallback(
-    (event: any) => {
-      if (onDataPointClick && event && event.payload) {
+    (event: unknown) => {
+      if (onDataPointClick && event && typeof event === 'object' && 'payload' in event) {
         onDataPointClick(event.payload as FinancialDataPoint)
       }
     },
@@ -289,8 +289,8 @@ const PieChartView = ({
   showLegend?: boolean
 }) => {
   const handleClick = useCallback(
-    (event: any) => {
-      if (onDataPointClick && event && event.payload) {
+    (event: unknown) => {
+      if (onDataPointClick && event && typeof event === 'object' && 'payload' in event) {
         onDataPointClick(event.payload as FinancialDataPoint)
       }
     },
