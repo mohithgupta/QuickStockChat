@@ -262,3 +262,4 @@ Desktop.ini
 .worktrees/
 .security-key
 logs/security/
+conversations.db
