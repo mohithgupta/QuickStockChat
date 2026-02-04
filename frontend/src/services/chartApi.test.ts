@@ -6,9 +6,7 @@ import {
   transformFinancialStatementData,
   formatChartDate,
   isValidChartResponse,
-  type ChartResponse,
-  type StockPriceData,
-  type FinancialDataPoint
+  type ChartResponse
 } from './chartApi'
 
 // Mock fetch globally

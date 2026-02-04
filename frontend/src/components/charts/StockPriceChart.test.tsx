@@ -188,7 +188,6 @@ describe('StockPriceChart Component', () => {
   })
 
   it('handles data point click callback', async () => {
-    const user = userEvent.setup()
     const handleClick = vi.fn()
     render(<StockPriceChart data={mockData} onDataPointClick={handleClick} />)
 
