@@ -302,7 +302,7 @@ export function transformFinancialStatementData(response: ChartResponse): Financ
       // Filter out data points without required value
       return typeof point.value === 'number' && !isNaN(point.value)
     })
-    .map((point, index) => ({
+    .map((point, _index) => ({
       label: point.date,
       value: point.value,
       category: response.metadata?.statement_type || response.chart_type,
