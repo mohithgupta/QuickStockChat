@@ -74,6 +74,11 @@ interface CustomTooltipProps {
   label?: string
 }
 
+// Type for chart event data
+interface ChartEventData {
+  activeTooltipIndex?: number | string | null
+}
+
 // Custom tooltip component
 const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (!active || !payload || !payload.length) {
@@ -92,7 +97,7 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
       }}
     >
       <p style={{ margin: 0, fontWeight: 'bold' }}>
-        {label || data.label || data.name}
+        {label || data.label}
       </p>
       <p style={{ margin: '5px 0 0 0', color: '#8884d8' }}>
         Value: {data.value?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -131,9 +136,9 @@ const BarChartView = ({
   brushHeight?: number
 }) => {
   const handleClick = useCallback(
-    (data: FinancialDataPoint) => {
-      if (onDataPointClick && data) {
-        onDataPointClick(data)
+    (event: any) => {
+      if (onDataPointClick && event && event.payload) {
+        onDataPointClick(event.payload as FinancialDataPoint)
       }
     },
     [onDataPointClick]
@@ -145,21 +150,18 @@ const BarChartView = ({
 
   const chartColors = colors || DEFAULT_COLORS
 
-  // Type for chart event data
-  interface ChartEventData {
-    activeTooltipIndex?: number
-  }
-
   // Handle zoom selection
   const handleMouseDown = useCallback((chartData: ChartEventData) => {
     if (enableZoom) {
-      setZoomArea({ startIndex: chartData.activeTooltipIndex })
+      const index = typeof chartData.activeTooltipIndex === 'number' ? chartData.activeTooltipIndex : undefined
+      setZoomArea({ startIndex: index })
     }
   }, [enableZoom])
 
   const handleMouseMove = useCallback((chartData: ChartEventData) => {
     if (enableZoom && zoomArea && zoomArea.startIndex !== undefined) {
-      setZoomArea({ ...zoomArea, endIndex: chartData.activeTooltipIndex })
+      const index = typeof chartData.activeTooltipIndex === 'number' ? chartData.activeTooltipIndex : undefined
+      setZoomArea({ ...zoomArea, endIndex: index })
     }
   }, [enableZoom, zoomArea])
 
@@ -287,9 +289,9 @@ const PieChartView = ({
   showLegend?: boolean
 }) => {
   const handleClick = useCallback(
-    (data: FinancialDataPoint) => {
-      if (onDataPointClick && data) {
-        onDataPointClick(data)
+    (event: any) => {
+      if (onDataPointClick && event && event.payload) {
+        onDataPointClick(event.payload as FinancialDataPoint)
       }
     },
     [onDataPointClick]

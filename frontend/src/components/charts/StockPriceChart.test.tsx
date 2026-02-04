@@ -213,7 +213,7 @@ describe('StockPriceChart Component', () => {
 
   it('handles data with missing optional fields', () => {
     const minimalData: StockPriceData[] = [
-      { date: '2024-01-01', close: 100 }
+      { date: '2024-01-01', open: 100, high: 110, low: 95, close: 100 }
     ]
 
     const { container } = render(<StockPriceChart data={minimalData} />)
