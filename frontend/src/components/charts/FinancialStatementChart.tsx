@@ -63,8 +63,19 @@ const DEFAULT_COLORS = [
   '#d0ed57'
 ]
 
+// Type for Recharts tooltip props
+interface CustomTooltipProps {
+  active?: boolean
+  payload?: Array<{
+    payload: FinancialDataPoint
+    name?: string
+    value?: number
+  }>
+  label?: string
+}
+
 // Custom tooltip component
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   if (!active || !payload || !payload.length) {
     return null
   }
@@ -120,7 +131,7 @@ const BarChartView = ({
   brushHeight?: number
 }) => {
   const handleClick = useCallback(
-    (data: any) => {
+    (data: FinancialDataPoint) => {
       if (onDataPointClick && data) {
         onDataPointClick(data)
       }
@@ -134,14 +145,19 @@ const BarChartView = ({
 
   const chartColors = colors || DEFAULT_COLORS
 
+  // Type for chart event data
+  interface ChartEventData {
+    activeTooltipIndex?: number
+  }
+
   // Handle zoom selection
-  const handleMouseDown = useCallback((chartData: any) => {
+  const handleMouseDown = useCallback((chartData: ChartEventData) => {
     if (enableZoom) {
       setZoomArea({ startIndex: chartData.activeTooltipIndex })
     }
   }, [enableZoom])
 
-  const handleMouseMove = useCallback((chartData: any) => {
+  const handleMouseMove = useCallback((chartData: ChartEventData) => {
     if (enableZoom && zoomArea && zoomArea.startIndex !== undefined) {
       setZoomArea({ ...zoomArea, endIndex: chartData.activeTooltipIndex })
     }
@@ -165,8 +181,14 @@ const BarChartView = ({
     setIsZoomed(false)
   }, [data])
 
+  // Type for brush event data
+  interface BrushEventData {
+    startIndex?: number
+    endIndex?: number
+  }
+
   // Handle brush change
-  const handleBrushChange = useCallback((brushData: any) => {
+  const handleBrushChange = useCallback((brushData: BrushEventData) => {
     if (enableBrush && brushData && brushData.startIndex !== undefined && brushData.endIndex !== undefined) {
       const start = Math.min(brushData.startIndex, brushData.endIndex)
       const end = Math.max(brushData.startIndex, brushData.endIndex)
@@ -265,7 +287,7 @@ const PieChartView = ({
   showLegend?: boolean
 }) => {
   const handleClick = useCallback(
-    (data: any) => {
+    (data: FinancialDataPoint) => {
       if (onDataPointClick && data) {
         onDataPointClick(data)
       }
@@ -282,7 +304,7 @@ const PieChartView = ({
         cx="50%"
         cy="50%"
         labelLine={false}
-        label={(props: any) => {
+        label={(props: { label?: string; percent?: number }) => {
           const { label, percent } = props
           return `${label}: ${((percent || 0) * 100).toFixed(0)}%`
         }}
