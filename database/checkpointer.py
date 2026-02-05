@@ -6,9 +6,10 @@ enabling conversation persistence across server restarts. It integrates with
 the existing database models and session management.
 """
 
+import asyncio
 import json
 from datetime import datetime, timezone
-from typing import Optional, Iterator, Any
+from typing import Optional, Iterator, AsyncIterator, Any, List, Tuple
 from sqlalchemy.orm import Session
 from langgraph.checkpoint.base import BaseCheckpointSaver, Checkpoint, CheckpointTuple
 from langgraph.checkpoint.memory import MemorySaver
@@ -254,7 +255,7 @@ class PostgresCheckpointSaver(BaseCheckpointSaver):
                 }
             }
 
-    def aget_tuple(self, config: dict) -> Optional[CheckpointTuple]:
+    async def aget_tuple(self, config: dict) -> Optional[CheckpointTuple]:
         """
         Async version of get_tuple.
 
@@ -264,9 +265,9 @@ class PostgresCheckpointSaver(BaseCheckpointSaver):
         Returns:
             Optional[CheckpointTuple]: Checkpoint tuple if found
         """
-        return self.get_tuple(config)
+        return await asyncio.to_thread(self.get_tuple, config)
 
-    def alist(self, config: dict, *, limit: int = 10) -> Iterator[CheckpointTuple]:
+    async def alist(self, config: dict, *, limit: int = 10) -> AsyncIterator[CheckpointTuple]:
         """
         Async version of list.
 
@@ -277,9 +278,13 @@ class PostgresCheckpointSaver(BaseCheckpointSaver):
         Yields:
             CheckpointTuple: Checkpoint tuples in reverse chronological order
         """
-        return self.list(config, limit=limit)
+        # Run the synchronous list method in a thread pool and collect results
+        result = await asyncio.to_thread(self.list, config, limit=limit)
+        # Yield each result asynchronously
+        for item in result:
+            yield item
 
-    def aput(self, config: dict, checkpoint: Checkpoint) -> dict:
+    async def aput(self, config: dict, checkpoint: Checkpoint) -> dict:
         """
         Async version of put.
 
@@ -290,7 +295,105 @@ class PostgresCheckpointSaver(BaseCheckpointSaver):
         Returns:
             dict: Updated configuration with timestamp
         """
-        return self.put(config, checkpoint)
+        return await asyncio.to_thread(self.put, config, checkpoint)
+
+    def put_writes(
+        self,
+        config: dict,
+        writes: List[Tuple[str, Any]],
+        task_id: str,
+        task_path: str = "",
+    ) -> None:
+        """
+        Store intermediate writes for a checkpoint.
+
+        This method stores writes that occur during checkpoint execution,
+        enabling support for concurrent operations and checkpoint recovery.
+
+        Args:
+            config: RunnableConfig containing thread_id
+            writes: List of (channel, value) tuples to store
+            task_id: Unique identifier for the task
+            task_path: Path identifier for nested tasks
+        """
+        thread_id = self._get_thread_id(config)
+
+        with SessionLocal() as db:
+            # Find the conversation
+            conversation = db.query(Conversation).filter(
+                Conversation.thread_id == thread_id
+            ).first()
+
+            if not conversation:
+                return
+
+            # Store writes as metadata in a system message
+            writes_message = Message(
+                conversation_id=conversation.id,
+                role="system",
+                content="[Writes]",
+                message_metadata={
+                    "writes": writes,
+                    "task_id": task_id,
+                    "task_path": task_path,
+                    "writes_type": "langgraph_writes"
+                }
+            )
+
+            db.add(writes_message)
+            db.commit()
+
+    async def aput_writes(
+        self,
+        config: dict,
+        writes: List[Tuple[str, Any]],
+        task_id: str,
+        task_path: str = "",
+    ) -> None:
+        """
+        Async version of put_writes.
+
+        Args:
+            config: RunnableConfig containing thread_id
+            writes: List of (channel, value) tuples to store
+            task_id: Unique identifier for the task
+            task_path: Path identifier for nested tasks
+        """
+        await asyncio.to_thread(self.put_writes, config, writes, task_id, task_path)
+
+    def delete_thread(self, thread_id: str) -> None:
+        """
+        Delete a conversation thread and all associated data.
+
+        Args:
+            thread_id: The thread identifier to delete
+        """
+        with SessionLocal() as db:
+            # Find the conversation
+            conversation = db.query(Conversation).filter(
+                Conversation.thread_id == thread_id
+            ).first()
+
+            if not conversation:
+                return
+
+            # Delete associated messages (cascade should handle this, but be explicit)
+            db.query(Message).filter(
+                Message.conversation_id == conversation.id
+            ).delete()
+
+            # Delete the conversation
+            db.delete(conversation)
+            db.commit()
+
+    async def adelete_thread(self, thread_id: str) -> None:
+        """
+        Async version of delete_thread.
+
+        Args:
+            thread_id: The thread identifier to delete
+        """
+        await asyncio.to_thread(self.delete_thread, thread_id)
 
 
 # For backwards compatibility and easier testing
