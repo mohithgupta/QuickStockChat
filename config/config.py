@@ -2,8 +2,8 @@
 Configuration module for the application.
 
 This module contains Pydantic models for request/response objects,
-security configuration loaded from environment variables, and
-constants for external API rate limits.
+security configuration loaded from environment variables, database
+configuration, and constants for external API rate limits.
 """
 
 import os
@@ -29,6 +29,30 @@ REQUIRE_API_KEY: bool = os.getenv("REQUIRE_API_KEY", "false").lower() == "true"
 # In production, restrict to your actual frontend domain(s)
 _CORS_ORIGINS_STR: str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
 CORS_ORIGINS: List[str] = [origin.strip() for origin in _CORS_ORIGINS_STR.split(",") if origin.strip()]
+
+
+# =============================================================================
+# Database Configuration
+# =============================================================================
+
+# Database URL for SQLAlchemy connection
+# Supports both PostgreSQL (production) and SQLite (development)
+# Environment variable: DATABASE_URL
+# Examples:
+#   - SQLite (default): "sqlite:///./conversations.db"
+#   - PostgreSQL: "postgresql://user:password@localhost/dbname"
+#   - PostgreSQL with cloud: "postgresql://user:pass@aws-0-us-east-1.pooler.supabase.com:6543/dbname"
+DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./conversations.db")
+
+# Database connection pool settings
+# Only applicable for PostgreSQL (SQLite uses file-based storage)
+DB_POOL_SIZE: int = int(os.getenv("DB_POOL_SIZE", "5"))  # Maximum number of connections in the pool
+DB_MAX_OVERFLOW: int = int(os.getenv("DB_MAX_OVERFLOW", "10"))  # Additional connections beyond pool_size
+DB_POOL_TIMEOUT: int = int(os.getenv("DB_POOL_TIMEOUT", "30"))  # Seconds to wait for connection
+DB_POOL_RECYCLE: int = int(os.getenv("DB_POOL_RECYCLE", "3600"))  # Recycle connections after 1 hour
+
+# Query logging (useful for debugging, disable in production)
+DB_ECHO: bool = os.getenv("DB_ECHO", "false").lower() == "true"
 
 
 # =============================================================================
