@@ -263,3 +263,5 @@ Desktop.ini
 .security-key
 logs/security/
 conversations.db
+
+temp
