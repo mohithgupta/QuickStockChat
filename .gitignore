@@ -262,3 +262,5 @@ Desktop.ini
 .worktrees/
 .security-key
 logs/security/
+
+temp
